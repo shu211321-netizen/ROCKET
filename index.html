@@ -2,240 +2,644 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Rocket Orbit (Air Start)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Rocket Orbit (Air Start + Guide + Prediction)</title>
 <style>
-html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui}
-canvas{display:block;width:100vw;height:100vh}
+  :root { --ui: rgba(0,0,0,.42); --ui2: rgba(255,255,255,.12); }
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  canvas{display:block;width:100vw;height:100vh;touch-action:none}
 
-.hud{
- position:fixed;left:12px;top:12px;
- background:rgba(0,0,0,.45);color:#fff;
- padding:12px;border-radius:14px;
- font-size:13px;line-height:1.4;
-}
-.hud b{font-weight:800}
-.row{display:flex;gap:8px;align-items:center;margin-top:6px}
-input[type=range]{flex:1}
-.toggle{margin-top:6px;font-size:12px}
-.btns{
- position:fixed;right:12px;bottom:12px;
- display:grid;grid-template-columns:repeat(3,64px);
- grid-template-rows:repeat(2,64px);gap:10px
-}
-.btn{
- background:rgba(0,0,0,.45);color:#fff;
- border-radius:16px;display:flex;
- align-items:center;justify-content:center;
- font-size:14px;user-select:none
-}
-.btn:active{transform:translateY(1px)}
+  .hud{
+    position:fixed;left:12px;top:12px;
+    background:var(--ui);color:#fff;
+    padding:12px 12px;border-radius:14px;
+    font-size:13px;line-height:1.35;
+    border:1px solid rgba(255,255,255,.14);
+    backdrop-filter: blur(8px);
+    user-select:none;
+    min-width: 280px;
+  }
+  .hud b{font-weight:800}
+  .row{display:flex;gap:10px;align-items:center;margin-top:8px}
+  .row label{opacity:.9; flex:0 0 auto}
+  .row input[type="range"]{flex:1}
+  .val{width:60px;text-align:right;opacity:.95}
+
+  .toggle{
+    margin-top:10px;
+    padding:8px 10px;
+    border-radius:12px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);
+    font-size:12px;
+    display:flex; gap:12px; flex-wrap:wrap;
+    align-items:center;
+  }
+  .toggle label{display:flex; gap:8px; align-items:center; cursor:pointer; opacity:.95}
+  .toggle input{transform:scale(1.15)}
+
+  .btns{
+    position:fixed;right:12px;bottom:12px;
+    display:grid;grid-template-columns:repeat(3,64px);
+    grid-template-rows:repeat(2,64px);gap:10px;
+    user-select:none;
+  }
+  .btn{
+    background:var(--ui);color:#fff;
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:18px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;line-height:1.05;
+    backdrop-filter: blur(8px);
+    box-shadow:0 10px 25px rgba(0,0,0,.25);
+    text-align:center;
+  }
+  .btn.small{font-size:12px;opacity:.95}
+  .btn:active{transform:translateY(1px)}
+  .hint{margin-top:8px;opacity:.85;font-size:12px}
+  .pill{
+    display:inline-block;padding:2px 8px;border-radius:999px;
+    background:var(--ui2);border:1px solid rgba(255,255,255,.14);
+    margin-right:6px;
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div class="hud">
-<b>🚀 Rocket Orbit</b>
+  <div><b>🚀 Rocket Orbit</b></div>
+  <div class="hint">
+    <span class="pill">←/→</span>각도
+    <span class="pill">↑</span>추력
+    <span class="pill">Space</span>추력 0
+    <span class="pill">R</span>리셋
+  </div>
 
-<div class="row">
-각도
-<input id="angle" type="range" min="-180" max="180" value="0">
-<span id="aVal">0°</span>
+  <div class="row">
+    <label>각도</label>
+    <input id="angle" type="range" min="-180" max="180" value="0">
+    <div class="val" id="angleVal">0°</div>
+  </div>
+
+  <div class="row">
+    <label>추력</label>
+    <input id="thr" type="range" min="0" max="100" value="0">
+    <div class="val" id="thrVal">0%</div>
+  </div>
+
+  <div class="toggle">
+    <label><input type="checkbox" id="gOn" checked>각도 가이드</label>
+    <label><input type="checkbox" id="pOn" checked>예상 궤적</label>
+  </div>
+
+  <div style="margin-top:10px; opacity:.95">
+    고도: <b id="alt">0</b> m<br/>
+    속도: <b id="spd">0</b> m/s<br/>
+    가이드: <b id="gAng">0</b> °<br/>
+    근지점: <b id="peri">-</b> m<br/>
+    원지점: <b id="apo">-</b> m<br/>
+    궤도 유지: <b id="hold">0.0</b> s
+  </div>
+
+  <div style="margin-top:10px; opacity:.9; font-size:12px">
+    목표: 근지점 <b>120km</b> 이상 상태로 <b>20초</b> 유지하면 성공<br/>
+    시작은 공중(기본 <b>30km</b>)에서 시작
+  </div>
 </div>
 
-<div class="row">
-추력
-<input id="thr" type="range" min="0" max="100" value="0">
-<span id="tVal">0%</span>
-</div>
+<div class="btns" aria-hidden="true">
+  <div class="btn small" id="reset">R<br/>Reset</div>
+  <div class="btn" id="up">▲<br/>Thrust</div>
+  <div class="btn small" id="cut">0<br/>Cut</div>
 
-<div class="toggle">
-<label><input type="checkbox" id="gOn" checked> 각도 가이드</label><br>
-<label><input type="checkbox" id="pOn" checked> 예상 궤적</label>
-</div>
-
-<div style="margin-top:8px">
-고도 <b id="alt">0</b> m<br>
-속도 <b id="spd">0</b> m/s<br>
-연료 <b id="fuel">100</b>%<br>
-가이드 각도 <b id="gAng">0</b>°<br>
-상태 <b id="stat">-</b>
-</div>
-</div>
-
-<div class="btns">
-<div class="btn" id="reset">R</div>
-<div class="btn" id="up">▲</div>
-<div class="btn" id="cut">0</div>
-<div class="btn" id="left">◀</div>
-<div class="btn"> </div>
-<div class="btn" id="right">▶</div>
+  <div class="btn" id="left">◀<br/>Left</div>
+  <div class="btn small" id="center">◎<br/>0°</div>
+  <div class="btn" id="right">▶<br/>Right</div>
 </div>
 
 <script>
-const c = document.getElementById("c");
-const ctx = c.getContext("2d");
-let W,H,DPR=1;
-function resize(){
- DPR=Math.min(2,devicePixelRatio||1);
- W=c.width=innerWidth*DPR;
- H=c.height=innerHeight*DPR;
-}
-addEventListener("resize",resize);resize();
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
 
-const Re=6_371_000, mu=3.986e14;
-const rocket={
- x:0,y:0,vx:0,vy:0,
- ang:0,thr:0,fuel:100,
- alive:true,hold:0
-};
-const cam={x:0,y:0};
-const trail=[];
+  // UI refs
+  const angleSlider = document.getElementById("angle");
+  const thrSlider   = document.getElementById("thr");
+  const angleVal = document.getElementById("angleVal");
+  const thrVal   = document.getElementById("thrVal");
+  const altEl  = document.getElementById("alt");
+  const spdEl  = document.getElementById("spd");
+  const gAngEl = document.getElementById("gAng");
+  const periEl = document.getElementById("peri");
+  const apoEl  = document.getElementById("apo");
+  const holdEl = document.getElementById("hold");
+  const gOn = document.getElementById("gOn");
+  const pOn = document.getElementById("pOn");
 
-function reset(){
- const startAlt=30_000;           // ★ 공중 시작 고도
- rocket.x=Re+startAlt; rocket.y=0;
- rocket.vx=0; rocket.vy=0;
- rocket.ang=0; rocket.thr=0;
- rocket.fuel=100; rocket.alive=true; rocket.hold=0;
- trail.length=0;
-}
-reset();
+  const btn = (id)=>document.getElementById(id);
 
-const angle=document.getElementById("angle");
-const thr=document.getElementById("thr");
-angle.oninput=()=>rocket.ang=+angle.value;
-thr.oninput=()=>rocket.thr=+thr.value;
+  let W=0,H=0,DPR=1;
+  function resize(){
+    DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+    W = canvas.width  = Math.floor(innerWidth * DPR);
+    H = canvas.height = Math.floor(innerHeight * DPR);
+  }
+  addEventListener("resize", resize, {passive:true});
+  resize();
 
-["left","right","up"].forEach(id=>{
- document.getElementById(id).onpointerdown=()=>keys[id]=true;
- document.getElementById(id).onpointerup=()=>keys[id]=false;
-});
-document.getElementById("cut").onclick=()=>rocket.thr=thr.value=0;
-document.getElementById("reset").onclick=reset;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
 
-const keys={left:false,right:false,up:false};
+  // === World/physics ===
+  const world = {
+    Re: 6_371_000,              // Earth radius (m)
+    mu: 3.986004418e14,         // GM (m^3/s^2)
+    airTop: 120_000,
+    drag0: 0.0012,
+    dragPower: 1.35,
+    thrustMax: 35,              // m/s^2 @ 100%
+    turnRate: 110,              // deg/sec
+    throttleRate: 100,          // %/sec
+    bgMaxAlt: 140_000,
+    orbitMinAlt: 120_000,
+    orbitHoldSeconds: 20,
+    // prediction
+    predSeconds: 18,
+    predStep: 0.12,
+    // START ALTITUDE (공중 시작)
+    startAlt: 30_000
+  };
 
-function guideAngle(alt){
- if(alt<2000) return 0;
- if(alt<10000) return (alt-2000)/8000*10;
- if(alt<30000) return 10+(alt-10000)/20000*25;
- if(alt<60000) return 35+(alt-30000)/30000*25;
- if(alt<120000) return 60+(alt-60000)/60000*30;
- return 90;
-}
+  // Rocket state (inertial frame, Earth center at 0,0)
+  const rocket = {
+    x: world.Re + world.startAlt,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    angleDeg: 0,   // 0=radial(outward), 90=tangential
+    throttle: 0,
+    alive: true,
+    orbitHold: 0
+  };
 
-function predict(){
- const pts=[];
- let s={...rocket};
- for(let i=0;i<120;i++){
-  const r=Math.hypot(s.x,s.y);
-  if(r<=Re) break;
-  const ux=s.x/r, uy=s.y/r;
-  const tx=-uy, ty=ux;
-  const a=s.ang*Math.PI/180;
-  let ax=-mu*s.x/(r*r*r);
-  let ay=-mu*s.y/(r*r*r);
-  ax+=Math.cos(a)*ux*30+Math.sin(a)*tx*30;
-  ay+=Math.cos(a)*uy*30+Math.sin(a)*ty*30;
-  s.vx+=ax*0.15; s.vy+=ay*0.15;
-  s.x+=s.vx*0.15; s.y+=s.vy*0.15;
-  pts.push({x:s.x,y:s.y});
- }
- return pts;
-}
+  // Camera follows rocket
+  const cam = { x: rocket.x, y: rocket.y };
 
-function m2p(m){return m*0.00015*DPR}
-function sx(x){return W/2+m2p(x-cam.x)}
-function sy(y){return H/2-m2p(y-cam.y)}
+  // Trail
+  const trail = [];
+  const TRAIL_MAX = 240;
 
-function draw(){
- ctx.clearRect(0,0,W,H);
- cam.x+= (rocket.x-cam.x)*0.05;
- cam.y+= (rocket.y-cam.y)*0.05;
+  // Stars
+  const stars = Array.from({length: 160}, () => ({
+    x: Math.random(), y: Math.random(), s: Math.random()*1.8 + 0.2
+  }));
 
- // Earth
- ctx.fillStyle="rgba(40,70,120,.6)";
- ctx.beginPath();
- ctx.arc(sx(0),sy(0),m2p(Re),0,Math.PI*2);
- ctx.fill();
+  // Background colors
+  const sky = { r: 88, g: 180, b: 255 };
+  const dusk = { r: 30, g: 60, b: 120 };
+  const space = { r: 3, g: 5, b: 14 };
+  const space2 = { r: 9, g: 10, b: 25 };
+  const smoothstep = (t)=>t*t*(3-2*t);
+  const mix=(a,b,t)=>a+(b-a)*t;
+  const mixColor=(c1,c2,t)=>({r:mix(c1.r,c2.r,t),g:mix(c1.g,c2.g,t),b:mix(c1.b,c2.b,t)});
+  const rgb=(r,g,b)=>`rgb(${r|0},${g|0},${b|0})`;
 
- // trail
- ctx.strokeStyle="rgba(255,255,255,.3)";
- ctx.beginPath();
- trail.forEach((p,i)=>{
-  if(i==0)ctx.moveTo(sx(p.x),sy(p.y));
-  else ctx.lineTo(sx(p.x),sy(p.y));
- });
- ctx.stroke();
+  function airDensityFactor(alt){
+    const t = clamp(alt / world.airTop, 0, 1);
+    return Math.pow(1 - t, 2.2);
+  }
 
- // prediction
- if(pOn.checked){
-  const pts=predict();
-  ctx.setLineDash([6,8]);
-  ctx.strokeStyle="rgba(255,255,255,.5)";
-  ctx.beginPath();
-  pts.forEach((p,i)=>{
-   if(i==0)ctx.moveTo(sx(p.x),sy(p.y));
-   else ctx.lineTo(sx(p.x),sy(p.y));
+  // Pitch program style guide (deg)
+  function guideAngleDeg(alt){
+    const km = alt / 1000;
+    const seg = (a0,a1,k0,k1)=>{
+      const t = clamp((km-k0)/(k1-k0),0,1);
+      return mix(a0,a1, smoothstep(t));
+    };
+    if (km < 2) return 0;
+    if (km < 10) return seg(0, 10, 2, 10);
+    if (km < 30) return seg(10, 35, 10, 30);
+    if (km < 60) return seg(35, 60, 30, 60);
+    if (km < 120) return seg(60, 90, 60, 120);
+    return 90;
+  }
+
+  // Orbit elements (approx)
+  function computeOrbit(x,y,vx,vy){
+    const r = Math.hypot(x,y);
+    const v2 = vx*vx + vy*vy;
+    const mu = world.mu;
+    const eps = v2/2 - mu/r;
+    if (eps >= 0) return { closed:false };
+
+    const a = -mu/(2*eps);
+    const h = x*vy - y*vx;
+    const e = Math.sqrt(Math.max(0, 1 - (h*h)/(a*mu)));
+    const rp = a*(1 - e);
+    const ra = a*(1 + e);
+    return { closed:true, periAlt: rp - world.Re, apoAlt: ra - world.Re };
+  }
+
+  // Forward simulate for prediction (holding current angle/throttle)
+  function predictPath(){
+    const pts=[];
+    const dt = world.predStep;
+    const steps = Math.floor(world.predSeconds / dt);
+
+    let x=rocket.x, y=rocket.y, vx=rocket.vx, vy=rocket.vy;
+    const angDeg = rocket.angleDeg;
+    const thr = rocket.throttle;
+
+    for(let i=0;i<steps;i++){
+      const r = Math.hypot(x,y);
+      if (r <= world.Re) break;
+      const alt = r - world.Re;
+
+      // gravity
+      const invR3 = 1/(r*r*r);
+      let ax = -world.mu * x * invR3;
+      let ay = -world.mu * y * invR3;
+
+      // basis
+      const ux = x/r, uy = y/r;
+      const tx = -uy, ty = ux;
+
+      // thrust direction
+      const a = angDeg * Math.PI/180;
+      const dirx = Math.cos(a)*ux + Math.sin(a)*tx;
+      const diry = Math.cos(a)*uy + Math.sin(a)*ty;
+
+      // thrust
+      const thrustAcc = world.thrustMax * (thr/100);
+      ax += thrustAcc * dirx;
+      ay += thrustAcc * diry;
+
+      // drag
+      const dens = airDensityFactor(Math.max(0,alt));
+      const speed = Math.hypot(vx,vy);
+      const dragMag = world.drag0 * dens * Math.pow(speed, world.dragPower);
+      if (speed > 1e-6){
+        ax += (-vx/speed)*dragMag;
+        ay += (-vy/speed)*dragMag;
+      }
+
+      // integrate
+      vx += ax*dt; vy += ay*dt;
+      x  += vx*dt; y  += vy*dt;
+
+      if (i%2===0) pts.push({x,y});
+    }
+    return pts;
+  }
+
+  // Screen transform
+  function metersToPixels(m){
+    const alt = Math.max(0, Math.hypot(rocket.x, rocket.y) - world.Re);
+    const z = 1/(1 + alt/120000);
+    const base = 0.00016 * DPR;
+    return m * base * (0.75 + 0.75*z);
+  }
+  const toX = (mx)=> W/2 + metersToPixels(mx - cam.x);
+  const toY = (my)=> H/2 - metersToPixels(my - cam.y);
+
+  function drawBackground(){
+    const alt = Math.max(0, Math.hypot(rocket.x, rocket.y) - world.Re);
+    const t = clamp(alt/world.bgMaxAlt, 0, 1);
+    const t1 = smoothstep(clamp(t*1.25,0,1));
+    const t2 = smoothstep(clamp((t-0.35)/0.65,0,1));
+
+    const cA = mixColor(sky,dusk,t1);
+    const cB = mixColor(dusk,space,t2);
+    const top = mixColor(cA,cB,t2);
+    const bottom = mixColor(mixColor({r:120,g:210,b:255},dusk,t1), mixColor(dusk,space2,t2), t2);
+
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, rgb(top.r,top.g,top.b));
+    grad.addColorStop(1, rgb(bottom.r,bottom.g,bottom.b));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    const starAlpha = smoothstep(clamp((alt-8000)/25000,0,1));
+    if (starAlpha>0.01){
+      ctx.save();
+      ctx.globalAlpha = 0.8*starAlpha;
+      ctx.fillStyle = "white";
+      for(const s of stars){
+        const x = s.x*W, y = s.y*H;
+        const r = (s.s*DPR);
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawEarth(){
+    const sx = toX(0), sy = toY(0);
+    const Rpx = metersToPixels(world.Re);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(20,40,80,0.55)";
+    ctx.beginPath(); ctx.arc(sx,sy,Rpx,0,Math.PI*2); ctx.fill();
+
+    const glow = ctx.createRadialGradient(sx,sy,Rpx*0.98,sx,sy,Rpx*1.10);
+    glow.addColorStop(0, "rgba(120,210,255,0.06)");
+    glow.addColorStop(1, "rgba(120,210,255,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(sx,sy,Rpx*1.10,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTrail(){
+    if (trail.length<2) return;
+    ctx.save();
+    ctx.globalAlpha=0.22;
+    ctx.strokeStyle="white";
+    ctx.lineWidth=2*DPR;
+    ctx.beginPath();
+    for(let i=0;i<trail.length;i++){
+      const p=trail[i];
+      const x=toX(p.x), y=toY(p.y);
+      if(i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPrediction(){
+    if (!pOn.checked || !rocket.alive) return;
+    const pts = predictPath();
+    if (pts.length<2) return;
+
+    ctx.save();
+    ctx.globalAlpha=0.45;
+    ctx.strokeStyle="white";
+    ctx.lineWidth=2*DPR;
+    ctx.setLineDash([4*DPR, 8*DPR]);
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      const x=toX(p.x), y=toY(p.y);
+      if(i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function drawRocketAndGuide(){
+    const sx = toX(rocket.x), sy = toY(rocket.y);
+
+    // rocket orientation for drawing
+    const r = Math.hypot(rocket.x, rocket.y);
+    const ux = rocket.x/r, uy = rocket.y/r;
+    const tx = -uy, ty = ux;
+    const a = rocket.angleDeg*Math.PI/180;
+    const dirx = Math.cos(a)*ux + Math.sin(a)*tx;
+    const diry = Math.cos(a)*uy + Math.sin(a)*ty;
+    const rot = Math.atan2(-dirx, diry);
+
+    // draw rocket as small capsule
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(rot);
+
+    ctx.fillStyle="rgba(255,255,255,0.95)";
+    ctx.beginPath();
+    ctx.roundRect(-6*DPR, -14*DPR, 12*DPR, 28*DPR, 6*DPR);
+    ctx.fill();
+    ctx.fillStyle="rgba(90,150,255,0.85)";
+    ctx.beginPath(); ctx.arc(0,-4*DPR,3.2*DPR,0,Math.PI*2); ctx.fill();
+
+    // simple flame when throttling
+    if (rocket.alive && rocket.throttle>1){
+      const p = rocket.throttle/100;
+      ctx.globalAlpha=0.85;
+      ctx.fillStyle="rgba(255,170,90,0.9)";
+      ctx.beginPath();
+      ctx.moveTo(0, 16*DPR);
+      ctx.quadraticCurveTo(-5*DPR, 16*DPR + (18+30*p)*DPR, 0, 16*DPR + (30+50*p)*DPR);
+      ctx.quadraticCurveTo( 5*DPR, 16*DPR + (18+30*p)*DPR, 0, 16*DPR);
+      ctx.fill();
+      ctx.globalAlpha=1;
+    }
+
+    ctx.restore();
+
+    // guide arrows
+    if (!gOn.checked) return;
+
+    const alt = Math.max(0, r-world.Re);
+    const gDeg = guideAngleDeg(alt);
+    const ga = gDeg*Math.PI/180;
+    const gdx = Math.cos(ga)*ux + Math.sin(ga)*tx;
+    const gdy = Math.cos(ga)*uy + Math.sin(ga)*ty;
+
+    const L = 58*DPR;
+
+    // current arrow (solid)
+    ctx.save();
+    ctx.globalAlpha=0.55;
+    ctx.strokeStyle="white";
+    ctx.lineWidth=2*DPR;
+    ctx.beginPath();
+    ctx.moveTo(sx,sy);
+    ctx.lineTo(sx + dirx*L, sy - diry*L);
+    ctx.stroke();
+
+    // guide arrow (dashed)
+    ctx.globalAlpha=0.9;
+    ctx.setLineDash([6*DPR,6*DPR]);
+    ctx.beginPath();
+    ctx.moveTo(sx,sy);
+    ctx.lineTo(sx + gdx*L, sy - gdy*L);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+
+  // Controls
+  const keys = { left:false, right:false, up:false };
+  addEventListener("keydown", (e)=>{
+    const k=e.key.toLowerCase();
+    if(k==="arrowleft"||k==="a") keys.left=true;
+    if(k==="arrowright"||k==="d") keys.right=true;
+    if(k==="arrowup"||k==="w") keys.up=true;
+    if(k===" ") { rocket.throttle=0; thrSlider.value="0"; }
+    if(k==="r") reset();
   });
-  ctx.stroke(); ctx.setLineDash([]);
- }
+  addEventListener("keyup",(e)=>{
+    const k=e.key.toLowerCase();
+    if(k==="arrowleft"||k==="a") keys.left=false;
+    if(k==="arrowright"||k==="d") keys.right=false;
+    if(k==="arrowup"||k==="w") keys.up=false;
+  });
 
- // rocket
- ctx.fillStyle="#fff";
- ctx.beginPath();
- ctx.arc(sx(rocket.x),sy(rocket.y),5*DPR,0,Math.PI*2);
- ctx.fill();
-}
+  function holdButton(el, onDown, onUp){
+    const down=(e)=>{e.preventDefault(); onDown();};
+    const up=(e)=>{e.preventDefault(); onUp && onUp();};
+    el.addEventListener("pointerdown",down);
+    el.addEventListener("pointerup",up);
+    el.addEventListener("pointercancel",up);
+    el.addEventListener("pointerleave",up);
+  }
+  holdButton(btn("left"), ()=>keys.left=true, ()=>keys.left=false);
+  holdButton(btn("right"),()=>keys.right=true,()=>keys.right=false);
+  holdButton(btn("up"),   ()=>keys.up=true,   ()=>keys.up=false);
 
-function update(dt){
- if(!rocket.alive) return;
- if(keys.left) rocket.ang-=90*dt;
- if(keys.right) rocket.ang+=90*dt;
- if(keys.up && rocket.fuel>0) rocket.thr=Math.min(100,rocket.thr+80*dt);
- else rocket.thr=Math.max(0,rocket.thr-60*dt);
+  btn("cut").addEventListener("click",()=>{ rocket.throttle=0; thrSlider.value="0"; });
+  btn("center").addEventListener("click",()=>{ rocket.angleDeg=0; angleSlider.value="0"; });
+  btn("reset").addEventListener("click", reset);
 
- const r=Math.hypot(rocket.x,rocket.y);
- const alt=r-Re;
- const ux=rocket.x/r, uy=rocket.y/r;
- const tx=-uy, ty=ux;
- const a=rocket.ang*Math.PI/180;
+  angleSlider.addEventListener("input",()=>{ rocket.angleDeg=+angleSlider.value; }, {passive:true});
+  thrSlider.addEventListener("input",()=>{ rocket.throttle=+thrSlider.value; }, {passive:true});
 
- let ax=-mu*rocket.x/(r*r*r);
- let ay=-mu*rocket.y/(r*r*r);
+  function reset(){
+    rocket.x = world.Re + world.startAlt;
+    rocket.y = 0;
+    rocket.vx = 0;
+    rocket.vy = 0;
+    rocket.angleDeg = 0;
+    rocket.throttle = 0;
+    rocket.alive = true;
+    rocket.orbitHold = 0;
+    trail.length = 0;
+    angleSlider.value="0";
+    thrSlider.value="0";
+  }
 
- const thrust=rocket.thr/100*30;
- ax+=thrust*(Math.cos(a)*ux+Math.sin(a)*tx);
- ay+=thrust*(Math.cos(a)*uy+Math.sin(a)*ty);
+  function update(dt){
+    if (!rocket.alive) return;
 
- rocket.vx+=ax*dt; rocket.vy+=ay*dt;
- rocket.x+=rocket.vx*dt; rocket.y+=rocket.vy*dt;
+    // steer
+    if (keys.left)  rocket.angleDeg -= world.turnRate*dt;
+    if (keys.right) rocket.angleDeg += world.turnRate*dt;
+    rocket.angleDeg = clamp(rocket.angleDeg, -180, 180);
+    angleSlider.value = String(rocket.angleDeg);
 
- trail.push({x:rocket.x,y:rocket.y});
- if(trail.length>200)trail.shift();
+    if (keys.up) rocket.throttle += world.throttleRate*dt;
+    else rocket.throttle -= world.throttleRate*0.75*dt;
+    rocket.throttle = clamp(rocket.throttle, 0, 100);
+    thrSlider.value = String(rocket.throttle);
 
- if(r<=Re){rocket.alive=false;}
-}
+    const x=rocket.x, y=rocket.y;
+    const r = Math.hypot(x,y);
+    const alt = r - world.Re;
 
-let last=performance.now();
-function loop(t){
- const dt=Math.min(0.02,(t-last)/1000); last=t;
- update(dt); draw();
+    // gravity
+    const invR3 = 1/(r*r*r);
+    let ax = -world.mu * x * invR3;
+    let ay = -world.mu * y * invR3;
 
- // UI
- const alt=Math.max(0,Math.hypot(rocket.x,rocket.y)-Re);
- aVal.textContent=Math.round(rocket.ang)+"°";
- tVal.textContent=Math.round(rocket.thr)+"%";
- altEl.textContent=Math.round(alt);
- spd.textContent=Math.round(Math.hypot(rocket.vx,rocket.vy));
- fuel.textContent=Math.round(rocket.fuel);
- gAng.textContent=Math.round(guideAngle(alt));
+    // basis
+    const ux = x/r, uy = y/r;
+    const tx = -uy, ty = ux;
 
- requestAnimationFrame(loop);
-}
-loop(last);
+    // thrust direction
+    const a = rocket.angleDeg*Math.PI/180;
+    const dirx = Math.cos(a)*ux + Math.sin(a)*tx;
+    const diry = Math.cos(a)*uy + Math.sin(a)*ty;
+
+    // thrust accel
+    const thrustAcc = world.thrustMax * (rocket.throttle/100);
+    ax += thrustAcc * dirx;
+    ay += thrustAcc * diry;
+
+    // drag near Earth
+    const dens = airDensityFactor(Math.max(0,alt));
+    const speed = Math.hypot(rocket.vx, rocket.vy);
+    const dragMag = world.drag0 * dens * Math.pow(speed, world.dragPower);
+    if (speed > 1e-6){
+      ax += (-rocket.vx/speed)*dragMag;
+      ay += (-rocket.vy/speed)*dragMag;
+    }
+
+    // integrate
+    rocket.vx += ax*dt;
+    rocket.vy += ay*dt;
+    rocket.x  += rocket.vx*dt;
+    rocket.y  += rocket.vy*dt;
+
+    // crash
+    if (Math.hypot(rocket.x, rocket.y) <= world.Re){
+      rocket.alive = false;
+      return;
+    }
+
+    // orbit hold
+    const orb = computeOrbit(rocket.x, rocket.y, rocket.vx, rocket.vy);
+    if (orb.closed && orb.periAlt >= world.orbitMinAlt){
+      rocket.orbitHold += dt;
+      if (rocket.orbitHold >= world.orbitHoldSeconds){
+        rocket.alive = false; // stop on success
+      }
+    } else {
+      rocket.orbitHold = 0;
+    }
+
+    // trail
+    trail.push({x:rocket.x, y:rocket.y});
+    if (trail.length > TRAIL_MAX) trail.shift();
+  }
+
+  function syncUI(){
+    const r = Math.hypot(rocket.x, rocket.y);
+    const alt = Math.max(0, r - world.Re);
+    const spd = Math.hypot(rocket.vx, rocket.vy);
+    const gDeg = guideAngleDeg(alt);
+
+    angleVal.textContent = `${rocket.angleDeg.toFixed(0)}°`;
+    thrVal.textContent = `${rocket.throttle.toFixed(0)}%`;
+    altEl.textContent = `${alt.toFixed(0)}`;
+    spdEl.textContent = `${spd.toFixed(1)}`;
+    gAngEl.textContent = `${gDeg.toFixed(0)}`;
+    holdEl.textContent = `${rocket.orbitHold.toFixed(1)}`;
+
+    const orb = computeOrbit(rocket.x, rocket.y, rocket.vx, rocket.vy);
+    if (orb.closed){
+      periEl.textContent = `${Math.max(0, orb.periAlt).toFixed(0)}`;
+      apoEl.textContent  = `${Math.max(0, orb.apoAlt).toFixed(0)}`;
+    } else {
+      periEl.textContent = "-";
+      apoEl.textContent  = "-";
+    }
+  }
+
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.02, (now-last)/1000);
+    last = now;
+
+    // camera follow
+    cam.x = lerp(cam.x, rocket.x, 0.06);
+    cam.y = lerp(cam.y, rocket.y, 0.06);
+
+    update(dt);
+
+    drawBackground();
+    drawEarth();
+    drawTrail();
+    drawPrediction();
+    drawRocketAndGuide();
+    syncUI();
+
+    // small end message
+    if (!rocket.alive){
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = `${Math.floor(20*DPR)}px system-ui`;
+      const success = rocket.orbitHold >= world.orbitHoldSeconds;
+      ctx.fillText(success ? "✅ 궤도 성공! (R)" : "💥 충돌! (R)", 18*DPR, 38*DPR);
+      ctx.restore();
+    }
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
 </script>
 </body>
 </html>
