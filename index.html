@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>Rocket → Moon Landing</title>
+  <title>Rocket Orbit (Guide + Prediction)</title>
   <style>
     :root { --ui: rgba(0,0,0,.35); --ui2: rgba(255,255,255,.12); }
     html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
@@ -16,12 +16,12 @@
       font-size: 13px; line-height: 1.35;
       border: 1px solid rgba(255,255,255,.14);
       user-select: none;
-      min-width: 230px;
+      min-width: 270px;
     }
     .hud b { font-weight: 800; }
     .row { display:flex; align-items:center; gap:10px; margin-top: 8px; }
     .row label { flex: 0 0 auto; opacity:.9; }
-    .row input[type="range"]{ flex:1 1 auto; width: 190px; }
+    .row input[type="range"]{ flex:1 1 auto; width: 200px; }
     .btns {
       position: fixed; right: 12px; bottom: 12px;
       display:grid; grid-template-columns: repeat(3, 64px);
@@ -49,20 +49,28 @@
       background: var(--ui2); border: 1px solid rgba(255,255,255,.14);
       margin-right: 6px;
     }
+    .toggle {
+      display:flex; align-items:center; gap:8px;
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      font-size: 12px;
+      opacity: .95;
+    }
+    .toggle input { transform: scale(1.15); }
+
     .toast {
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
+      position: fixed; left: 50%; transform: translateX(-50%);
       bottom: 92px;
-      padding: 10px 14px;
-      border-radius: 999px;
+      padding: 10px 14px; border-radius: 999px;
       background: rgba(0,0,0,0.45);
       color: #fff;
       border: 1px solid rgba(255,255,255,.16);
       backdrop-filter: blur(10px);
       font-size: 13px;
-      opacity: 0;
-      transition: opacity .2s ease;
+      opacity: 0; transition: opacity .2s ease;
       pointer-events:none;
       white-space: nowrap;
     }
@@ -70,56 +78,67 @@
   </style>
 </head>
 <body>
-  <canvas id="c"></canvas>
+<canvas id="c"></canvas>
 
-  <div class="hud" id="hud">
-    <div><b>🚀 Rocket → 🌕 Moon Landing</b></div>
-    <div class="hint">
-      <span class="pill">←/→</span>각도
-      <span class="pill">↑</span>추력
-      <span class="pill">R</span>리셋
-      <span class="pill">Space</span>추력 0
-    </div>
-
-    <div class="row">
-      <label>각도</label>
-      <input id="angle" type="range" min="-90" max="90" value="0" />
-      <div id="angleVal" style="width:46px;text-align:right;opacity:.95">0°</div>
-    </div>
-
-    <div class="row">
-      <label>추력</label>
-      <input id="throttle" type="range" min="0" max="100" value="0" />
-      <div id="thrVal" style="width:46px;text-align:right;opacity:.95">0%</div>
-    </div>
-
-    <div style="margin-top:10px; opacity:.95">
-      모드: <b id="mode">지구</b><br/>
-      고도: <b id="alt">0</b> m<br/>
-      속도: <b id="spd">0</b> m/s<br/>
-      연료: <b id="fuel">100</b> %
-    </div>
-
-    <div style="margin-top:10px; opacity:.9; font-size:12px">
-      달 착륙 조건(패드 위):<br/>
-      - 수직속도 <b>6</b> m/s 이하<br/>
-      - 수평속도 <b>3</b> m/s 이하<br/>
-      - 각도 <b>±10°</b> 이내
-    </div>
+<div class="hud">
+  <div><b>🚀 Rocket Orbit</b></div>
+  <div class="hint">
+    <span class="pill">←/→</span>각도
+    <span class="pill">↑</span>추력
+    <span class="pill">Space</span>추력 0
+    <span class="pill">R</span>리셋
   </div>
 
-  <div class="toast" id="toast"></div>
-
-  <!-- Mobile controls -->
-  <div class="btns" aria-hidden="true">
-    <div class="btn small" id="reset">R<br/>Reset</div>
-    <div class="btn" id="up">▲<br/>Thrust</div>
-    <div class="btn small" id="cut">0<br/>Cut</div>
-
-    <div class="btn" id="left">◀<br/>Left</div>
-    <div class="btn small" id="center">◎<br/>0°</div>
-    <div class="btn" id="right">▶<br/>Right</div>
+  <div class="row">
+    <label>각도</label>
+    <input id="angle" type="range" min="-180" max="180" value="0" />
+    <div id="angleVal" style="width:60px;text-align:right;opacity:.95">0°</div>
   </div>
+
+  <div class="row">
+    <label>추력</label>
+    <input id="throttle" type="range" min="0" max="100" value="0" />
+    <div id="thrVal" style="width:60px;text-align:right;opacity:.95">0%</div>
+  </div>
+
+  <div class="toggle">
+    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+      <input type="checkbox" id="showGuide" checked />
+      각도 가이드 표시
+    </label>
+    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+      <input type="checkbox" id="showPred" checked />
+      예상 궤적 표시
+    </label>
+  </div>
+
+  <div style="margin-top:10px; opacity:.95">
+    고도: <b id="alt">0</b> m<br/>
+    속도: <b id="spd">0</b> m/s<br/>
+    연료: <b id="fuel">100</b> %<br/>
+    가이드 각도: <b id="guide">0</b> °<br/>
+    근지점: <b id="peri">-</b> m<br/>
+    원지점: <b id="apo">-</b> m<br/>
+    궤도 판정: <b id="status">-</b>
+  </div>
+
+  <div style="margin-top:10px; opacity:.9; font-size:12px">
+    목표: <b>120km</b> 이상에서 <b>20초</b> 유지하면 “궤도 성공”<br/>
+    팁: 초반엔 거의 수직, 10~50km 구간에서 천천히 눕히고, 120km 근처는 90°!
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="btns" aria-hidden="true">
+  <div class="btn small" id="reset">R<br/>Reset</div>
+  <div class="btn" id="up">▲<br/>Thrust</div>
+  <div class="btn small" id="cut">0<br/>Cut</div>
+
+  <div class="btn" id="left">◀<br/>Left</div>
+  <div class="btn small" id="center">◎<br/>0°</div>
+  <div class="btn" id="right">▶<br/>Right</div>
+</div>
 
 <script>
 (() => {
@@ -131,16 +150,21 @@
   const angleVal = document.getElementById('angleVal');
   const thrVal = document.getElementById('thrVal');
 
-  const modeEl = document.getElementById('mode');
   const altEl = document.getElementById('alt');
   const spdEl = document.getElementById('spd');
   const fuelEl = document.getElementById('fuel');
+  const periEl = document.getElementById('peri');
+  const apoEl = document.getElementById('apo');
+  const statusEl = document.getElementById('status');
+  const guideEl = document.getElementById('guide');
+
+  const showGuideEl = document.getElementById('showGuide');
+  const showPredEl = document.getElementById('showPred');
 
   const toastEl = document.getElementById('toast');
   const btn = (id) => document.getElementById(id);
 
   let W=0,H=0, DPR=1;
-
   function resize(){
     DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
     W = Math.floor(innerWidth * DPR);
@@ -151,78 +175,65 @@
   addEventListener('resize', resize, {passive:true});
   resize();
 
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function lerp(a,b,t){ return a + (b-a)*t; }
-  function smoothstep(t){ return t*t*(3-2*t); }
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const smoothstep = (t)=>t*t*(3-2*t);
 
-  function rgb(r,g,b){ return `rgb(${r|0},${g|0},${b|0})`; }
-  function mixColor(c1,c2,t){
-    return { r: lerp(c1.r,c2.r,t), g: lerp(c1.g,c2.g,t), b: lerp(c1.b,c2.b,t) };
-  }
-
-  // --- World / game params ---
+  // === Physics / world ===
   const world = {
-    // Earth segment
-    earthAirTop: 50000,
-    earthMaxAltForBg: 120000,
-    earthG: 9.81,
-    earthDrag0: 0.0009,
-    earthDragPower: 1.35,
+    Re: 6_371_000,
+    mu: 3.986004418e14,
+    airTop: 120_000,
+    drag0: 0.0012,
+    dragPower: 1.35,
 
-    // Moon segment
-    moonG: 1.62,
-    moonDrag0: 0.00002,
-    moonDragPower: 1.2,
+    thrustMax: 35,
+    fuelBurn: 0.23,
+    turnRate: 110,
+    throttleRate: 100,
 
-    // Rocket controls
-    turnRate: 80,      // deg/sec for keys/buttons
-    throttleRate: 95,  // %/sec
-    thrustMax: 28,     // m/s^2 at 100%
-    fuelBurn: 0.22,    // %/sec at 100%
+    bgMaxAlt: 140_000,
+    orbitMinAlt: 120_000,
+    orbitHoldSeconds: 20,
 
-    // Visual
-    launchPadWidthPx: 220,
-    moonPadWidthMeters: 26,   // landing pad width in meters (world units)
-    moonApproachAlt: 120000,  // when reached, start showing moon and switch mission
-    moonSurfaceY: 0,          // moon ground altitude in moon-world (we reset y)
+    // prediction
+    predSeconds: 18,    // how far ahead to simulate
+    predStep: 0.12      // seconds per step (smaller = smoother)
   };
 
-  // Mission state
-  const mission = {
-    phase: "earth",  // "earth" | "transfer" | "moon" | "landed" | "crashed"
-    // During moon phase:
-    padX: 0,         // meters in moon world
-    padY: 0
-  };
-
-  // Rocket state
+  // 2D inertial frame, Earth at (0,0)
   const rocket = {
-    x: 0, y: 0,   // meters
-    vx: 0, vy: 0, // m/s
-    angleDeg: 0,
+    x: world.Re, y: 0,
+    vx: 0, vy: 0,
+    angleDeg: 0,     // relative to radial outward (0 = up/outward, 90 = tangential)
     throttle: 0,
     fuel: 100,
     alive: true,
     exploded: false,
-    landed: false,
-    t: 0
+    t: 0,
+    orbitHold: 0
   };
 
-  // Camera
-  const cam = { x:0, y:0 };
+  const cam = { x: rocket.x, y: rocket.y };
 
-  // Stars
+  // trail (actual path)
+  const trail = [];
+  const TRAIL_MAX = 240;
+
+  // === visuals ===
+  const sky = { r: 88, g: 180, b: 255 };
+  const dusk = { r: 30, g: 60, b: 120 };
+  const space = { r: 3, g: 5, b: 14 };
+  const space2 = { r: 9, g: 10, b: 25 };
+
+  function rgb(r,g,b){ return `rgb(${r|0},${g|0},${b|0})`; }
+  function mixColor(c1,c2,t){ return { r: lerp(c1.r,c2.r,t), g: lerp(c1.g,c2.g,t), b: lerp(c1.b,c2.b,t) }; }
+
   const stars = Array.from({length: 170}, () => ({
     x: Math.random(), y: Math.random(),
     s: Math.random()*1.8 + 0.2,
     tw: Math.random()*0.6 + 0.2
   }));
-
-  // Background colors
-  const sky = { r: 88, g: 180, b: 255 };
-  const dusk = { r: 30, g: 60, b: 120 };
-  const space = { r: 3, g: 5, b: 14 };
-  const space2 = { r: 9, g: 10, b: 25 };
 
   function showToast(text, ms=1400){
     toastEl.textContent = text;
@@ -231,53 +242,52 @@
     showToast._t = setTimeout(()=>toastEl.classList.remove("show"), ms);
   }
 
+  function airDensityFactor(alt){
+    const t = clamp(alt / world.airTop, 0, 1);
+    return Math.pow(1 - t, 2.2);
+  }
+
+  // === “실제 발사 단계 같은” 각도 가이드 (Pitch Program) ===
+  // 0° = radial outward(수직), 90° = tangential(수평)
+  function guideAngleDeg(alt){
+    // alt in meters
+    // 0~2km: 0°
+    // 2~10km: 0 -> 10°
+    // 10~30km: 10 -> 35°
+    // 30~60km: 35 -> 60°
+    // 60~120km: 60 -> 90°
+    // 120km+: 90°
+    const km = alt / 1000;
+
+    const seg = (a0, a1, k0, k1) => {
+      const t = clamp((km - k0) / (k1 - k0), 0, 1);
+      return lerp(a0, a1, smoothstep(t));
+    };
+
+    if (km < 2) return 0;
+    if (km < 10) return seg(0, 10, 2, 10);
+    if (km < 30) return seg(10, 35, 10, 30);
+    if (km < 60) return seg(35, 60, 30, 60);
+    if (km < 120) return seg(60, 90, 60, 120);
+    return 90;
+  }
+
   function reset(){
-    rocket.x = 0; rocket.y = 0;
+    rocket.x = world.Re; rocket.y = 0;
     rocket.vx = 0; rocket.vy = 0;
     rocket.angleDeg = 0;
     rocket.throttle = 0;
     rocket.fuel = 100;
     rocket.alive = true;
     rocket.exploded = false;
-    rocket.landed = false;
     rocket.t = 0;
-
-    mission.phase = "earth";
-    mission.padX = 0;
-    mission.padY = 0;
+    rocket.orbitHold = 0;
+    trail.length = 0;
 
     angleSlider.value = "0";
     throttleSlider.value = "0";
-    showToast("지구에서 발사! 고도 120km 넘으면 달 접근!");
+    showToast("초반 수직(0°) → 고도 오르면 가이드 따라 천천히 90°로 눕혀!");
   }
-
-  // UI sync
-  function syncUI(){
-    angleVal.textContent = `${rocket.angleDeg.toFixed(0)}°`;
-    thrVal.textContent = `${rocket.throttle.toFixed(0)}%`;
-    altEl.textContent = `${Math.max(0, rocket.y).toFixed(0)}`;
-
-    const spd = Math.hypot(rocket.vx, rocket.vy);
-    spdEl.textContent = `${spd.toFixed(1)}`;
-    fuelEl.textContent = `${rocket.fuel.toFixed(0)}`;
-
-    const label = mission.phase === "earth" ? "지구"
-                : mission.phase === "transfer" ? "전이(달 접근)"
-                : mission.phase === "moon" ? "달"
-                : mission.phase === "landed" ? "착륙 성공"
-                : "추락";
-    modeEl.textContent = label;
-  }
-
-  angleSlider.addEventListener('input', () => {
-    rocket.angleDeg = parseFloat(angleSlider.value);
-    syncUI();
-  }, {passive:true});
-
-  throttleSlider.addEventListener('input', () => {
-    rocket.throttle = parseFloat(throttleSlider.value);
-    syncUI();
-  }, {passive:true});
 
   // Controls
   const keys = { left:false, right:false, up:false };
@@ -309,313 +319,308 @@
   holdButton(btn('up'), () => keys.up = true, () => keys.up = false);
 
   btn('reset').addEventListener('click', reset);
-  btn('cut').addEventListener('click', () => { rocket.throttle = 0; throttleSlider.value="0"; syncUI(); });
-  btn('center').addEventListener('click', () => { rocket.angleDeg = 0; angleSlider.value="0"; syncUI(); });
+  btn('cut').addEventListener('click', () => { rocket.throttle = 0; throttleSlider.value="0"; });
+  btn('center').addEventListener('click', () => { rocket.angleDeg = 0; angleSlider.value="0"; });
 
-  // Scale (meters -> pixels)
-  function metersToPixels(m){
-    // zoom out gradually with altitude
-    const z = 1 / (1 + Math.max(0, rocket.y)/70000);
-    const base = 2.2 * DPR;
-    return m * base * (0.7 + 0.6*z);
+  angleSlider.addEventListener('input', () => rocket.angleDeg = parseFloat(angleSlider.value), {passive:true});
+  throttleSlider.addEventListener('input', () => rocket.throttle = parseFloat(throttleSlider.value), {passive:true});
+
+  // === orbit math (approx) ===
+  function computeOrbit(state){
+    const x=state.x, y=state.y, vx=state.vx, vy=state.vy;
+    const r = Math.hypot(x,y);
+    const v2 = vx*vx + vy*vy;
+    const mu = world.mu;
+
+    const eps = v2/2 - mu/r;
+    if (eps >= 0) return { closed:false };
+
+    const a = -mu / (2*eps);
+    const h = x*vy - y*vx;
+    const e = Math.sqrt(Math.max(0, 1 - (h*h)/(a*mu)));
+
+    const rp = a*(1 - e);
+    const ra = a*(1 + e);
+    return {
+      closed:true,
+      e, a,
+      periAlt: rp - world.Re,
+      apoAlt:  ra - world.Re
+    };
   }
 
-  function worldToScreenX(mx){
-    const px = metersToPixels(mx - cam.x);
-    return W/2 + px;
-  }
-  function worldToScreenY(my){
-    const py = metersToPixels(my - cam.y);
-    return H*0.78 - py;
+  // === prediction (expected trajectory) ===
+  // Forward simulate for N seconds with current angle/throttle held constant.
+  function predictPath(){
+    const pts = [];
+    const dt = world.predStep;
+    const steps = Math.floor(world.predSeconds / dt);
+
+    // clone state
+    let s = {
+      x: rocket.x, y: rocket.y,
+      vx: rocket.vx, vy: rocket.vy,
+      fuel: rocket.fuel
+    };
+
+    const angDeg = rocket.angleDeg;
+    const thr = rocket.throttle;
+
+    for (let i=0; i<steps; i++){
+      const rx = s.x, ry = s.y;
+      const r = Math.hypot(rx, ry);
+      const alt = r - world.Re;
+
+      // stop if impact
+      if (r <= world.Re) break;
+
+      // gravity
+      const invR3 = 1/(r*r*r);
+      let ax = -world.mu * rx * invR3;
+      let ay = -world.mu * ry * invR3;
+
+      // thrust direction basis
+      const ux = rx / r, uy = ry / r;
+      const tx = -uy, ty = ux;
+      const ang = angDeg * Math.PI/180;
+      const dirx = Math.cos(ang)*ux + Math.sin(ang)*tx;
+      const diry = Math.cos(ang)*uy + Math.sin(ang)*ty;
+
+      // thrust magnitude + fuel burn (same rule)
+      let thrustAcc = 0;
+      if (s.fuel > 0 && thr > 0){
+        thrustAcc = world.thrustMax * (thr/100);
+        s.fuel = clamp(s.fuel - world.fuelBurn*(thr/100)*dt, 0, 100);
+      }
+
+      ax += thrustAcc * dirx;
+      ay += thrustAcc * diry;
+
+      // drag
+      const dens = airDensityFactor(Math.max(0, alt));
+      const speed = Math.hypot(s.vx, s.vy);
+      const dragMag = world.drag0 * dens * Math.pow(speed, world.dragPower);
+      if (speed > 1e-6){
+        ax += (-s.vx / speed) * dragMag;
+        ay += (-s.vy / speed) * dragMag;
+      }
+
+      // integrate
+      s.vx += ax * dt;
+      s.vy += ay * dt;
+      s.x  += s.vx * dt;
+      s.y  += s.vy * dt;
+
+      // save every few steps for drawing
+      if (i % 2 === 0) pts.push({x:s.x, y:s.y});
+    }
+    return pts;
   }
 
-  // Air density factor
-  function airDensityFactorEarth(alt){
-    const t = clamp(alt / world.earthAirTop, 0, 1);
-    return Math.pow(1 - t, 2.2);
-  }
-
-  // Mission transition to moon
-  function enterMoon(){
-    mission.phase = "moon";
-    // Place landing pad somewhere near x=0 (random but fair)
-    mission.padX = (Math.random()*2 - 1) * 220; // -220..220 meters
-    mission.padY = 0;
-
-    // Reset "altitude reference": bring rocket to some altitude above moon surface
-    // Keep sideways velocity feel, but clamp it.
-    rocket.x = (Math.random()*2 - 1) * 180; // start offset
-    rocket.y = 900; // 900m above surface
-    rocket.vx = clamp(rocket.vx, -20, 20) * 0.35;
-    rocket.vy = -6; // descending a bit
-    rocket.angleDeg = 0;
-    angleSlider.value = "0";
-    showToast("🌕 달 도착! 패드 위에 부드럽게 착륙해!");
-  }
-
-  // Landing check
-  function checkLanding(){
-    const withinPad = Math.abs(rocket.x - mission.padX) <= (world.moonPadWidthMeters/2);
-    const angOk = Math.abs(rocket.angleDeg) <= 10;
-    const vxOk = Math.abs(rocket.vx) <= 3;
-    const vyOk = Math.abs(rocket.vy) <= 6; // downward speed
-    return withinPad && angOk && vxOk && vyOk;
-  }
-
+  // === update ===
   function update(dt){
     rocket.t += dt;
+    if (!rocket.alive) return;
 
-    // If end state: still allow tiny UI control but no physics
-    if (!rocket.alive) { syncUI(); return; }
-
-    // Key/button adjustments (sliders still override via input)
     if (keys.left)  rocket.angleDeg -= world.turnRate * dt;
     if (keys.right) rocket.angleDeg += world.turnRate * dt;
-    rocket.angleDeg = clamp(rocket.angleDeg, -90, 90);
+    rocket.angleDeg = clamp(rocket.angleDeg, -180, 180);
     angleSlider.value = String(rocket.angleDeg);
 
-    if (keys.up && rocket.fuel > 0) {
-      rocket.throttle += world.throttleRate * dt;
-    } else {
-      rocket.throttle -= world.throttleRate * 0.75 * dt;
-    }
+    if (keys.up && rocket.fuel > 0) rocket.throttle += world.throttleRate * dt;
+    else rocket.throttle -= world.throttleRate * 0.75 * dt;
     rocket.throttle = clamp(rocket.throttle, 0, 100);
     throttleSlider.value = String(rocket.throttle);
 
-    // Determine physics params by phase
-    const isMoon = (mission.phase === "moon");
-    const g = isMoon ? world.moonG : world.earthG;
-    const drag0 = isMoon ? world.moonDrag0 : world.earthDrag0;
-    const dragPow = isMoon ? world.moonDragPower : world.earthDragPower;
+    const rx = rocket.x, ry = rocket.y;
+    const r = Math.hypot(rx, ry);
+    const alt = r - world.Re;
 
-    // Thrust direction: 0° up
-    const aRad = rocket.angleDeg * Math.PI / 180;
-    const thrustDirX = Math.sin(aRad);
-    const thrustDirY = Math.cos(aRad);
+    // gravity
+    const invR3 = 1/(r*r*r);
+    let ax = -world.mu * rx * invR3;
+    let ay = -world.mu * ry * invR3;
+
+    // thrust direction (relative to radial outward)
+    const ux = rx / r, uy = ry / r;
+    const tx = -uy, ty = ux;
+
+    const ang = rocket.angleDeg * Math.PI/180;
+    const dirx = Math.cos(ang)*ux + Math.sin(ang)*tx;
+    const diry = Math.cos(ang)*uy + Math.sin(ang)*ty;
 
     let thrustAcc = 0;
     if (rocket.fuel > 0 && rocket.throttle > 0){
       thrustAcc = world.thrustMax * (rocket.throttle/100);
-      rocket.fuel -= world.fuelBurn * (rocket.throttle/100) * dt;
-      rocket.fuel = clamp(rocket.fuel, 0, 100);
+      rocket.fuel = clamp(rocket.fuel - world.fuelBurn*(rocket.throttle/100)*dt, 0, 100);
       if (rocket.fuel <= 0){
         rocket.throttle = 0;
         throttleSlider.value = "0";
       }
     }
+    ax += thrustAcc * dirx;
+    ay += thrustAcc * diry;
 
-    // Drag
-    const alt = Math.max(0, rocket.y);
-    const dens = isMoon ? 0.02 : airDensityFactorEarth(alt);
+    // drag
+    const dens = airDensityFactor(Math.max(0, alt));
     const speed = Math.hypot(rocket.vx, rocket.vy);
-    const dragMag = drag0 * dens * Math.pow(speed, dragPow);
-    const dragX = (speed > 1e-6) ? (-rocket.vx / speed) * dragMag : 0;
-    const dragY = (speed > 1e-6) ? (-rocket.vy / speed) * dragMag : 0;
-
-    // Acceleration
-    const ax = thrustAcc * thrustDirX + dragX;
-    const ay = thrustAcc * thrustDirY + dragY - g;
+    const dragMag = world.drag0 * dens * Math.pow(speed, world.dragPower);
+    if (speed > 1e-6){
+      ax += (-rocket.vx / speed) * dragMag;
+      ay += (-rocket.vy / speed) * dragMag;
+    }
 
     rocket.vx += ax * dt;
     rocket.vy += ay * dt;
+    rocket.x  += rocket.vx * dt;
+    rocket.y  += rocket.vy * dt;
 
-    rocket.x += rocket.vx * dt;
-    rocket.y += rocket.vy * dt;
-
-    // Transition to moon approach
-    if (mission.phase === "earth" && rocket.y >= world.moonApproachAlt){
-      mission.phase = "transfer";
-      showToast("우주 도달! 달 접근 중…");
-    }
-    if (mission.phase === "transfer" && rocket.y >= world.moonApproachAlt + 12000){
-      // once a bit higher, "arrive"
-      enterMoon();
+    // crash
+    const r2 = Math.hypot(rocket.x, rocket.y);
+    if (r2 <= world.Re){
+      rocket.alive = false;
+      rocket.exploded = true;
+      showToast("💥 지구에 충돌! R로 리셋");
     }
 
-    // Ground collision on moon
-    if (mission.phase === "moon" && rocket.y <= 0){
-      rocket.y = 0;
-      if (checkLanding()){
-        rocket.vx = 0; rocket.vy = 0;
-        rocket.throttle = 0;
+    // orbit success (simple)
+    const orb = computeOrbit(rocket);
+    if (orb.closed && orb.periAlt >= world.orbitMinAlt){
+      rocket.orbitHold += dt;
+      if (rocket.orbitHold >= world.orbitHoldSeconds){
         rocket.alive = false;
-        rocket.landed = true;
-        mission.phase = "landed";
-        showToast("✅ 착륙 성공! (R로 다시)");
-      } else {
-        const impact = Math.hypot(rocket.vx, rocket.vy);
-        rocket.vx = 0; rocket.vy = 0;
-        rocket.alive = false;
-        rocket.exploded = true;
-        mission.phase = "crashed";
-        showToast(`💥 추락! 조건 못 맞춤 (R로 다시)`);
+        showToast("✅ 궤도 성공! (R로 다시)");
       }
-    }
-
-    // Ground collision on earth (below 0)
-    if (mission.phase !== "moon" && rocket.y < 0){
-      const impact = Math.hypot(rocket.vx, rocket.vy);
-      rocket.y = 0;
-      if (impact > 18){
-        rocket.vx = 0; rocket.vy = 0;
-        rocket.alive = false;
-        rocket.exploded = true;
-        mission.phase = "crashed";
-        showToast("💥 지상 추락! R로 리셋");
-      } else {
-        rocket.vy = 0;
-        rocket.vx *= 0.35;
-      }
-    }
-
-    syncUI();
-  }
-
-  // Drawing
-  function drawBackground(){
-    // If moon phase: darker and more space-y
-    const isMoon = (mission.phase === "moon" || mission.phase === "landed" || mission.phase === "crashed");
-    const alt = Math.max(0, rocket.y);
-
-    if (!isMoon){
-      // Earth sky->space based on altitude
-      const t = clamp(alt / world.earthMaxAltForBg, 0, 1);
-      const t1 = smoothstep(clamp(t*1.25, 0, 1));
-      const t2 = smoothstep(clamp((t-0.35)/0.65, 0, 1));
-
-      const cA = mixColor(sky, dusk, t1);
-      const cB = mixColor(dusk, space, t2);
-      const top = mixColor(cA, cB, t2);
-
-      const bottom = mixColor(
-        mixColor({r:120,g:210,b:255}, dusk, t1),
-        mixColor(dusk, space2, t2),
-        t2
-      );
-
-      const grad = ctx.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, rgb(top.r, top.g, top.b));
-      grad.addColorStop(1, rgb(bottom.r, bottom.g, bottom.b));
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,W,H);
-
-      // Stars appear as you go up
-      const starAlpha = smoothstep(clamp((alt-8000)/25000, 0, 1));
-      drawStars(starAlpha);
     } else {
-      // Moon: mostly space, subtle vignette
-      const top = {r: 5, g: 6, b: 18};
-      const bottom = {r: 2, g: 2, b: 8};
-      const grad = ctx.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, rgb(top.r, top.g, top.b));
-      grad.addColorStop(1, rgb(bottom.r, bottom.g, bottom.b));
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,W,H);
-      drawStars(1.0);
+      rocket.orbitHold = 0;
     }
+
+    // trail
+    trail.push({x: rocket.x, y: rocket.y});
+    if (trail.length > 240) trail.shift();
   }
 
-  function drawStars(alpha){
-    if (alpha <= 0.01) return;
-    ctx.save();
-    ctx.globalAlpha = 0.85 * alpha;
-    ctx.fillStyle = "white";
-    for (const s of stars){
-      const x = s.x * W;
-      const y = s.y * H;
-      const tw = 0.75 + 0.25*Math.sin((rocket.t*1.2 + s.x*10 + s.y*7) * s.tw);
-      const r = (s.s * DPR) * tw;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI*2);
-      ctx.fill();
-    }
-    ctx.restore();
+  // === drawing helpers ===
+  function metersToPixels(m){
+    const alt = Math.max(0, Math.hypot(rocket.x, rocket.y) - world.Re);
+    const z = 1/(1 + alt/120000);
+    const base = 0.00016 * DPR;
+    return m * base * (0.75 + 0.75*z);
   }
+  function worldToScreenX(mx){ return W/2 + metersToPixels(mx - cam.x); }
+  function worldToScreenY(my){ return H/2 - metersToPixels(my - cam.y); }
 
-  function drawEarthGround(){
-    const baseY = worldToScreenY(0);
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.fillRect(0, baseY, W, H - baseY);
-
-    // launch pad
-    const padW = world.launchPadWidthPx * DPR;
-    const padH = 18 * DPR;
-    const cx = W/2;
-    ctx.fillStyle = "rgba(255,255,255,0.22)";
-    ctx.fillRect(cx - padW/2, baseY - padH, padW, padH);
-    ctx.restore();
-  }
-
-  function drawMoonSurface(){
-    // Moon ground at y=0 in moon world
-    const gy = worldToScreenY(0);
-
-    // Surface band
-    ctx.save();
-    const grad = ctx.createLinearGradient(0, gy-120*DPR, 0, H);
-    grad.addColorStop(0, "rgba(210,210,210,0.05)");
-    grad.addColorStop(1, "rgba(200,200,200,0.20)");
+  function drawBackground(){
+    const alt = Math.max(0, Math.hypot(rocket.x, rocket.y) - world.Re);
+    const t = clamp(alt / world.bgMaxAlt, 0, 1);
+    const t1 = smoothstep(clamp(t*1.25, 0, 1));
+    const t2 = smoothstep(clamp((t-0.35)/0.65, 0, 1));
+    const cA = mixColor(sky, dusk, t1);
+    const cB = mixColor(dusk, space, t2);
+    const top = mixColor(cA, cB, t2);
+    const bottom = mixColor(
+      mixColor({r:120,g:210,b:255}, dusk, t1),
+      mixColor(dusk, space2, t2),
+      t2
+    );
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, rgb(top.r, top.g, top.b));
+    grad.addColorStop(1, rgb(bottom.r, bottom.g, bottom.b));
     ctx.fillStyle = grad;
-    ctx.fillRect(0, gy, W, H-gy);
+    ctx.fillRect(0,0,W,H);
 
-    // Craters (simple circles) in screen space
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = "white";
-    for (let i=0;i<10;i++){
-      const x = (i/9) * W + (Math.sin(i*9.1)*22*DPR);
-      const r = (18 + (i%4)*10) * DPR;
-      const y = gy + (25 + (i%3)*30) * DPR;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI*2);
-      ctx.fill();
+    const starAlpha = smoothstep(clamp((alt-8000)/25000, 0, 1));
+    if (starAlpha > 0.01){
+      ctx.save();
+      ctx.globalAlpha = 0.85 * starAlpha;
+      ctx.fillStyle = "white";
+      for (const s of stars){
+        const x = s.x * W;
+        const y = s.y * H;
+        const tw = 0.75 + 0.25*Math.sin((rocket.t*1.2 + s.x*10 + s.y*7) * s.tw);
+        const r = (s.s * DPR) * tw;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
+  }
 
-    // Landing pad
-    const padHalf = world.moonPadWidthMeters/2;
-    const x1 = worldToScreenX(mission.padX - padHalf);
-    const x2 = worldToScreenX(mission.padX + padHalf);
-    const padH = 10*DPR;
+  function drawEarth(){
+    const sx = worldToScreenX(0);
+    const sy = worldToScreenY(0);
+    const Rpx = metersToPixels(world.Re);
 
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
-    ctx.fillRect(Math.min(x1,x2), gy - padH, Math.abs(x2-x1), padH);
-
-    // Flag at center
-    const cx = worldToScreenX(mission.padX);
-    ctx.strokeStyle = "rgba(255,255,255,0.55)";
-    ctx.lineWidth = 2*DPR;
+    ctx.save();
+    ctx.fillStyle = "rgba(20,40,80,0.55)";
     ctx.beginPath();
-    ctx.moveTo(cx, gy - padH);
-    ctx.lineTo(cx, gy - padH - 32*DPR);
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.beginPath();
-    ctx.moveTo(cx, gy - padH - 32*DPR);
-    ctx.lineTo(cx + 22*DPR, gy - padH - 26*DPR);
-    ctx.lineTo(cx, gy - padH - 20*DPR);
-    ctx.closePath();
+    ctx.arc(sx, sy, Rpx, 0, Math.PI*2);
     ctx.fill();
 
+    const glow = ctx.createRadialGradient(sx, sy, Rpx*0.98, sx, sy, Rpx*1.10);
+    glow.addColorStop(0, "rgba(120,210,255,0.06)");
+    glow.addColorStop(1, "rgba(120,210,255,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(sx, sy, Rpx*1.10, 0, Math.PI*2);
+    ctx.fill();
     ctx.restore();
+  }
+
+  function drawTrail(){
+    if (trail.length < 2) return;
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2*DPR;
+    ctx.beginPath();
+    for (let i=0;i<trail.length;i++){
+      const p = trail[i];
+      const x = worldToScreenX(p.x);
+      const y = worldToScreenY(p.y);
+      if (i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function roundRect(x,y,w,h,r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
   }
 
   function drawRocket(){
     const sx = worldToScreenX(rocket.x);
     const sy = worldToScreenY(rocket.y);
 
-    const scale = clamp(1.15 - rocket.y/140000, 0.55, 1.15) * DPR;
+    // rocket visual orientation: along thrust dir
+    const rx = rocket.x, ry = rocket.y;
+    const r = Math.hypot(rx, ry);
+    const ux = rx / r, uy = ry / r;
+    const tx = -uy, ty = ux;
+
+    const ang = rocket.angleDeg * Math.PI/180;
+    const dirx = Math.cos(ang)*ux + Math.sin(ang)*tx;
+    const diry = Math.cos(ang)*uy + Math.sin(ang)*ty;
+    const rot = Math.atan2(-dirx, diry); // 0 = up
+
+    const alt = Math.max(0, r - world.Re);
+    const scale = clamp(1.15 - alt/300000, 0.55, 1.15) * DPR;
     const bodyH = 54 * scale;
     const bodyW = 18 * scale;
 
-    const aRad = rocket.angleDeg * Math.PI/180;
-
     ctx.save();
     ctx.translate(sx, sy);
-    ctx.rotate(aRad);
+    ctx.rotate(rot);
 
-    // flame
     const thrusting = rocket.alive && rocket.fuel > 0 && rocket.throttle > 0.5;
     if (thrusting){
       const p = rocket.throttle/100;
@@ -640,12 +645,10 @@
       ctx.globalAlpha = 1;
     }
 
-    // body
     ctx.fillStyle = "rgba(255,255,255,0.95)";
     roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 10*scale);
     ctx.fill();
 
-    // nose
     ctx.fillStyle = "rgba(230,230,240,0.95)";
     ctx.beginPath();
     ctx.moveTo(-bodyW/2, -bodyH/2 + 6*scale);
@@ -654,118 +657,156 @@
     ctx.closePath();
     ctx.fill();
 
-    // window
     ctx.fillStyle = "rgba(90,150,255,0.85)";
     ctx.beginPath();
     ctx.arc(0, -8*scale, 5.2*scale, 0, Math.PI*2);
     ctx.fill();
-
-    // fins
-    ctx.fillStyle = "rgba(220,220,230,0.95)";
-    ctx.beginPath();
-    ctx.moveTo(-bodyW/2, bodyH/2 - 6*scale);
-    ctx.lineTo(-bodyW/2 - 12*scale, bodyH/2 + 8*scale);
-    ctx.lineTo(-bodyW/2, bodyH/2 + 8*scale);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(bodyW/2, bodyH/2 - 6*scale);
-    ctx.lineTo(bodyW/2 + 12*scale, bodyH/2 + 8*scale);
-    ctx.lineTo(bodyW/2, bodyH/2 + 8*scale);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
-
-    // status text
-    if (rocket.exploded){
-      ctx.save();
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.font = `${Math.floor(22*DPR)}px system-ui`;
-      ctx.fillText("💥 폭발! R로 리셋", 18*DPR, 44*DPR);
-      ctx.restore();
-    }
-    if (rocket.landed){
-      ctx.save();
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.font = `${Math.floor(22*DPR)}px system-ui`;
-      ctx.fillText("✅ 착륙 성공! R로 다시", 18*DPR, 44*DPR);
-      ctx.restore();
-    }
-  }
-
-  function roundRect(x,y,w,h,r){
-    const rr = Math.min(r, w/2, h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr, y);
-    ctx.arcTo(x+w, y, x+w, y+h, rr);
-    ctx.arcTo(x+w, y+h, x, y+h, rr);
-    ctx.arcTo(x, y+h, x, y, rr);
-    ctx.arcTo(x, y, x+w, y, rr);
-    ctx.closePath();
-  }
-
-  function drawAltitudeMarkers(){
-    // Only in earth phase (altitude scale)
-    if (mission.phase === "moon" || mission.phase === "landed" || mission.phase === "crashed") return;
-
-    const alt = Math.max(0, rocket.y);
-    const base = Math.floor(alt/1000)*1000;
-    ctx.save();
-    ctx.globalAlpha = 0.7;
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.font = `${Math.floor(12*DPR)}px system-ui`;
-
-    for (let i=-2;i<=6;i++){
-      const a = base + i*1000;
-      if (a < 0) continue;
-      const y = worldToScreenY(a);
-      if (y < 0 || y > H) continue;
-      ctx.fillRect(12*DPR, y, 22*DPR, 1*DPR);
-      ctx.fillText(`${a/1000} km`, 40*DPR, y - 4*DPR);
-    }
     ctx.restore();
   }
 
-  function render(){
-    // camera follows rocket
-    cam.y = lerp(cam.y, rocket.y, 0.08);
-    cam.x = lerp(cam.x, rocket.x, 0.05);
+  // === Guide rendering (two arrows from rocket) ===
+  function drawGuide(){
+    if (!showGuideEl.checked) return;
 
-    drawBackground();
+    const r = Math.hypot(rocket.x, rocket.y);
+    const alt = Math.max(0, r - world.Re);
+    const gAng = guideAngleDeg(alt);
 
-    if (mission.phase === "moon" || mission.phase === "landed" || mission.phase === "crashed") {
-      drawMoonSurface();
-    } else {
-      drawEarthGround();
+    // basis
+    const ux = rocket.x / r, uy = rocket.y / r;
+    const tx = -uy, ty = ux;
+
+    function dirFromAngle(deg){
+      const a = deg * Math.PI/180;
+      return {
+        x: Math.cos(a)*ux + Math.sin(a)*tx,
+        y: Math.cos(a)*uy + Math.sin(a)*ty
+      };
     }
 
-    drawAltitudeMarkers();
-    drawRocket();
+    const cur = dirFromAngle(rocket.angleDeg);
+    const gd  = dirFromAngle(gAng);
 
-    // helper crosshair
+    const sx = worldToScreenX(rocket.x);
+    const sy = worldToScreenY(rocket.y);
+
+    const L = 52 * DPR; // arrow length
+
+    // current arrow (solid)
     ctx.save();
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.65;
     ctx.strokeStyle = "white";
+    ctx.lineWidth = 2*DPR;
     ctx.beginPath();
-    ctx.moveTo(W/2, H*0.78);
-    ctx.lineTo(W/2, H*0.78 - 30*DPR);
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + cur.x*L, sy - cur.y*L);
     ctx.stroke();
+
+    // guide arrow (dashed)
+    ctx.globalAlpha = 0.9;
+    ctx.setLineDash([6*DPR, 6*DPR]);
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + gd.x*L, sy - gd.y*L);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // label near rocket
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = `${Math.floor(12*DPR)}px system-ui`;
+    ctx.fillText(`guide ${gAng.toFixed(0)}°`, sx + 10*DPR, sy - 12*DPR);
     ctx.restore();
+  }
+
+  // === Predicted path rendering (dotted line) ===
+  function drawPrediction(){
+    if (!showPredEl.checked) return;
+    if (!rocket.alive) return;
+
+    const pts = predictPath();
+    if (pts.length < 2) return;
+
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2*DPR;
+    ctx.setLineDash([4*DPR, 8*DPR]);
+    ctx.beginPath();
+    for (let i=0;i<pts.length;i++){
+      const p = pts[i];
+      const x = worldToScreenX(p.x);
+      const y = worldToScreenY(p.y);
+      if (i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function syncUI(){
+    angleVal.textContent = `${rocket.angleDeg.toFixed(0)}°`;
+    thrVal.textContent = `${rocket.throttle.toFixed(0)}%`;
+
+    const r = Math.hypot(rocket.x, rocket.y);
+    const alt = Math.max(0, r - world.Re);
+    altEl.textContent = `${alt.toFixed(0)}`;
+
+    const spd = Math.hypot(rocket.vx, rocket.vy);
+    spdEl.textContent = `${spd.toFixed(1)}`;
+
+    fuelEl.textContent = `${rocket.fuel.toFixed(0)}`;
+
+    const gAng = guideAngleDeg(alt);
+    guideEl.textContent = `${gAng.toFixed(0)}`;
+
+    const orb = computeOrbit(rocket);
+    if (orb.closed){
+      periEl.textContent = `${Math.max(0, orb.periAlt).toFixed(0)}`;
+      apoEl.textContent  = `${Math.max(0, orb.apoAlt).toFixed(0)}`;
+      statusEl.textContent = (orb.periAlt >= world.orbitMinAlt)
+        ? `유지중 ${rocket.orbitHold.toFixed(1)}s`
+        : "미달";
+    } else {
+      periEl.textContent = "-";
+      apoEl.textContent = "-";
+      statusEl.textContent = "탈출/미정";
+    }
   }
 
   let last = performance.now();
   function loop(now){
-    const dt = Math.min(0.033, (now - last) / 1000);
+    const dt = Math.min(0.02, (now - last)/1000);
     last = now;
+
+    cam.x = lerp(cam.x, rocket.x, 0.06);
+    cam.y = lerp(cam.y, rocket.y, 0.06);
+
     update(dt);
-    render();
+
+    drawBackground();
+    drawEarth();
+    drawTrail();
+    drawPrediction(); // 예상 궤적 먼저
+    drawRocket();
+    drawGuide();      // 각도 가이드 오버레이
+    syncUI();
+
+    if (!rocket.alive){
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = `${Math.floor(22*DPR)}px system-ui`;
+      const msg = rocket.exploded ? "💥 충돌! R로 리셋" : "✅ 궤도 성공!";
+      ctx.fillText(msg, 18*DPR, 44*DPR);
+      ctx.restore();
+    }
+
     requestAnimationFrame(loop);
   }
 
   reset();
-  syncUI();
   requestAnimationFrame(loop);
 })();
 </script>
