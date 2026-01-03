@@ -1,814 +1,241 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>Rocket Orbit (Guide + Prediction)</title>
-  <style>
-    :root { --ui: rgba(0,0,0,.35); --ui2: rgba(255,255,255,.12); }
-    html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    canvas { display:block; width:100vw; height:100vh; touch-action:none; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rocket Orbit (Air Start)</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui}
+canvas{display:block;width:100vw;height:100vh}
 
-    .hud {
-      position: fixed; left: 12px; top: 12px;
-      padding: 10px 12px; border-radius: 14px;
-      background: var(--ui); color: #fff; backdrop-filter: blur(8px);
-      font-size: 13px; line-height: 1.35;
-      border: 1px solid rgba(255,255,255,.14);
-      user-select: none;
-      min-width: 270px;
-    }
-    .hud b { font-weight: 800; }
-    .row { display:flex; align-items:center; gap:10px; margin-top: 8px; }
-    .row label { flex: 0 0 auto; opacity:.9; }
-    .row input[type="range"]{ flex:1 1 auto; width: 200px; }
-    .btns {
-      position: fixed; right: 12px; bottom: 12px;
-      display:grid; grid-template-columns: repeat(3, 64px);
-      grid-template-rows: repeat(2, 64px);
-      gap: 10px;
-      user-select:none;
-    }
-    .btn {
-      display:flex; align-items:center; justify-content:center;
-      background: var(--ui);
-      border: 1px solid rgba(255,255,255,.14);
-      color:#fff; border-radius: 18px;
-      font-size: 14px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 10px 25px rgba(0,0,0,.25);
-      text-align:center;
-      line-height:1.05;
-    }
-    .btn:active { transform: translateY(1px); }
-    .btn.small { font-size: 12px; opacity:.95; }
-
-    .hint { margin-top: 8px; opacity: .85; font-size: 12px; }
-    .pill {
-      display:inline-block; padding: 2px 8px; border-radius: 999px;
-      background: var(--ui2); border: 1px solid rgba(255,255,255,.14);
-      margin-right: 6px;
-    }
-    .toggle {
-      display:flex; align-items:center; gap:8px;
-      margin-top: 10px;
-      padding: 8px 10px;
-      border-radius: 12px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.12);
-      font-size: 12px;
-      opacity: .95;
-    }
-    .toggle input { transform: scale(1.15); }
-
-    .toast {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      bottom: 92px;
-      padding: 10px 14px; border-radius: 999px;
-      background: rgba(0,0,0,0.45);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,.16);
-      backdrop-filter: blur(10px);
-      font-size: 13px;
-      opacity: 0; transition: opacity .2s ease;
-      pointer-events:none;
-      white-space: nowrap;
-    }
-    .toast.show { opacity: 1; }
-  </style>
+.hud{
+ position:fixed;left:12px;top:12px;
+ background:rgba(0,0,0,.45);color:#fff;
+ padding:12px;border-radius:14px;
+ font-size:13px;line-height:1.4;
+}
+.hud b{font-weight:800}
+.row{display:flex;gap:8px;align-items:center;margin-top:6px}
+input[type=range]{flex:1}
+.toggle{margin-top:6px;font-size:12px}
+.btns{
+ position:fixed;right:12px;bottom:12px;
+ display:grid;grid-template-columns:repeat(3,64px);
+ grid-template-rows:repeat(2,64px);gap:10px
+}
+.btn{
+ background:rgba(0,0,0,.45);color:#fff;
+ border-radius:16px;display:flex;
+ align-items:center;justify-content:center;
+ font-size:14px;user-select:none
+}
+.btn:active{transform:translateY(1px)}
+</style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div class="hud">
-  <div><b>🚀 Rocket Orbit</b></div>
-  <div class="hint">
-    <span class="pill">←/→</span>각도
-    <span class="pill">↑</span>추력
-    <span class="pill">Space</span>추력 0
-    <span class="pill">R</span>리셋
-  </div>
+<b>🚀 Rocket Orbit</b>
 
-  <div class="row">
-    <label>각도</label>
-    <input id="angle" type="range" min="-180" max="180" value="0" />
-    <div id="angleVal" style="width:60px;text-align:right;opacity:.95">0°</div>
-  </div>
-
-  <div class="row">
-    <label>추력</label>
-    <input id="throttle" type="range" min="0" max="100" value="0" />
-    <div id="thrVal" style="width:60px;text-align:right;opacity:.95">0%</div>
-  </div>
-
-  <div class="toggle">
-    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-      <input type="checkbox" id="showGuide" checked />
-      각도 가이드 표시
-    </label>
-    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-      <input type="checkbox" id="showPred" checked />
-      예상 궤적 표시
-    </label>
-  </div>
-
-  <div style="margin-top:10px; opacity:.95">
-    고도: <b id="alt">0</b> m<br/>
-    속도: <b id="spd">0</b> m/s<br/>
-    연료: <b id="fuel">100</b> %<br/>
-    가이드 각도: <b id="guide">0</b> °<br/>
-    근지점: <b id="peri">-</b> m<br/>
-    원지점: <b id="apo">-</b> m<br/>
-    궤도 판정: <b id="status">-</b>
-  </div>
-
-  <div style="margin-top:10px; opacity:.9; font-size:12px">
-    목표: <b>120km</b> 이상에서 <b>20초</b> 유지하면 “궤도 성공”<br/>
-    팁: 초반엔 거의 수직, 10~50km 구간에서 천천히 눕히고, 120km 근처는 90°!
-  </div>
+<div class="row">
+각도
+<input id="angle" type="range" min="-180" max="180" value="0">
+<span id="aVal">0°</span>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="row">
+추력
+<input id="thr" type="range" min="0" max="100" value="0">
+<span id="tVal">0%</span>
+</div>
 
-<div class="btns" aria-hidden="true">
-  <div class="btn small" id="reset">R<br/>Reset</div>
-  <div class="btn" id="up">▲<br/>Thrust</div>
-  <div class="btn small" id="cut">0<br/>Cut</div>
+<div class="toggle">
+<label><input type="checkbox" id="gOn" checked> 각도 가이드</label><br>
+<label><input type="checkbox" id="pOn" checked> 예상 궤적</label>
+</div>
 
-  <div class="btn" id="left">◀<br/>Left</div>
-  <div class="btn small" id="center">◎<br/>0°</div>
-  <div class="btn" id="right">▶<br/>Right</div>
+<div style="margin-top:8px">
+고도 <b id="alt">0</b> m<br>
+속도 <b id="spd">0</b> m/s<br>
+연료 <b id="fuel">100</b>%<br>
+가이드 각도 <b id="gAng">0</b>°<br>
+상태 <b id="stat">-</b>
+</div>
+</div>
+
+<div class="btns">
+<div class="btn" id="reset">R</div>
+<div class="btn" id="up">▲</div>
+<div class="btn" id="cut">0</div>
+<div class="btn" id="left">◀</div>
+<div class="btn"> </div>
+<div class="btn" id="right">▶</div>
 </div>
 
 <script>
-(() => {
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W,H,DPR=1;
+function resize(){
+ DPR=Math.min(2,devicePixelRatio||1);
+ W=c.width=innerWidth*DPR;
+ H=c.height=innerHeight*DPR;
+}
+addEventListener("resize",resize);resize();
 
-  const angleSlider = document.getElementById('angle');
-  const throttleSlider = document.getElementById('throttle');
-  const angleVal = document.getElementById('angleVal');
-  const thrVal = document.getElementById('thrVal');
+const Re=6_371_000, mu=3.986e14;
+const rocket={
+ x:0,y:0,vx:0,vy:0,
+ ang:0,thr:0,fuel:100,
+ alive:true,hold:0
+};
+const cam={x:0,y:0};
+const trail=[];
 
-  const altEl = document.getElementById('alt');
-  const spdEl = document.getElementById('spd');
-  const fuelEl = document.getElementById('fuel');
-  const periEl = document.getElementById('peri');
-  const apoEl = document.getElementById('apo');
-  const statusEl = document.getElementById('status');
-  const guideEl = document.getElementById('guide');
+function reset(){
+ const startAlt=30_000;           // ★ 공중 시작 고도
+ rocket.x=Re+startAlt; rocket.y=0;
+ rocket.vx=0; rocket.vy=0;
+ rocket.ang=0; rocket.thr=0;
+ rocket.fuel=100; rocket.alive=true; rocket.hold=0;
+ trail.length=0;
+}
+reset();
 
-  const showGuideEl = document.getElementById('showGuide');
-  const showPredEl = document.getElementById('showPred');
+const angle=document.getElementById("angle");
+const thr=document.getElementById("thr");
+angle.oninput=()=>rocket.ang=+angle.value;
+thr.oninput=()=>rocket.thr=+thr.value;
 
-  const toastEl = document.getElementById('toast');
-  const btn = (id) => document.getElementById(id);
+["left","right","up"].forEach(id=>{
+ document.getElementById(id).onpointerdown=()=>keys[id]=true;
+ document.getElementById(id).onpointerup=()=>keys[id]=false;
+});
+document.getElementById("cut").onclick=()=>rocket.thr=thr.value=0;
+document.getElementById("reset").onclick=reset;
 
-  let W=0,H=0, DPR=1;
-  function resize(){
-    DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
-    W = Math.floor(innerWidth * DPR);
-    H = Math.floor(innerHeight * DPR);
-    canvas.width = W;
-    canvas.height = H;
-  }
-  addEventListener('resize', resize, {passive:true});
-  resize();
+const keys={left:false,right:false,up:false};
 
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const lerp = (a,b,t)=>a+(b-a)*t;
-  const smoothstep = (t)=>t*t*(3-2*t);
+function guideAngle(alt){
+ if(alt<2000) return 0;
+ if(alt<10000) return (alt-2000)/8000*10;
+ if(alt<30000) return 10+(alt-10000)/20000*25;
+ if(alt<60000) return 35+(alt-30000)/30000*25;
+ if(alt<120000) return 60+(alt-60000)/60000*30;
+ return 90;
+}
 
-  // === Physics / world ===
-  const world = {
-    Re: 6_371_000,
-    mu: 3.986004418e14,
-    airTop: 120_000,
-    drag0: 0.0012,
-    dragPower: 1.35,
+function predict(){
+ const pts=[];
+ let s={...rocket};
+ for(let i=0;i<120;i++){
+  const r=Math.hypot(s.x,s.y);
+  if(r<=Re) break;
+  const ux=s.x/r, uy=s.y/r;
+  const tx=-uy, ty=ux;
+  const a=s.ang*Math.PI/180;
+  let ax=-mu*s.x/(r*r*r);
+  let ay=-mu*s.y/(r*r*r);
+  ax+=Math.cos(a)*ux*30+Math.sin(a)*tx*30;
+  ay+=Math.cos(a)*uy*30+Math.sin(a)*ty*30;
+  s.vx+=ax*0.15; s.vy+=ay*0.15;
+  s.x+=s.vx*0.15; s.y+=s.vy*0.15;
+  pts.push({x:s.x,y:s.y});
+ }
+ return pts;
+}
 
-    thrustMax: 35,
-    fuelBurn: 0.23,
-    turnRate: 110,
-    throttleRate: 100,
+function m2p(m){return m*0.00015*DPR}
+function sx(x){return W/2+m2p(x-cam.x)}
+function sy(y){return H/2-m2p(y-cam.y)}
 
-    bgMaxAlt: 140_000,
-    orbitMinAlt: 120_000,
-    orbitHoldSeconds: 20,
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ cam.x+= (rocket.x-cam.x)*0.05;
+ cam.y+= (rocket.y-cam.y)*0.05;
 
-    // prediction
-    predSeconds: 18,    // how far ahead to simulate
-    predStep: 0.12      // seconds per step (smaller = smoother)
-  };
+ // Earth
+ ctx.fillStyle="rgba(40,70,120,.6)";
+ ctx.beginPath();
+ ctx.arc(sx(0),sy(0),m2p(Re),0,Math.PI*2);
+ ctx.fill();
 
-  // 2D inertial frame, Earth at (0,0)
-  const rocket = {
-    x: world.Re, y: 0,
-    vx: 0, vy: 0,
-    angleDeg: 0,     // relative to radial outward (0 = up/outward, 90 = tangential)
-    throttle: 0,
-    fuel: 100,
-    alive: true,
-    exploded: false,
-    t: 0,
-    orbitHold: 0
-  };
+ // trail
+ ctx.strokeStyle="rgba(255,255,255,.3)";
+ ctx.beginPath();
+ trail.forEach((p,i)=>{
+  if(i==0)ctx.moveTo(sx(p.x),sy(p.y));
+  else ctx.lineTo(sx(p.x),sy(p.y));
+ });
+ ctx.stroke();
 
-  const cam = { x: rocket.x, y: rocket.y };
-
-  // trail (actual path)
-  const trail = [];
-  const TRAIL_MAX = 240;
-
-  // === visuals ===
-  const sky = { r: 88, g: 180, b: 255 };
-  const dusk = { r: 30, g: 60, b: 120 };
-  const space = { r: 3, g: 5, b: 14 };
-  const space2 = { r: 9, g: 10, b: 25 };
-
-  function rgb(r,g,b){ return `rgb(${r|0},${g|0},${b|0})`; }
-  function mixColor(c1,c2,t){ return { r: lerp(c1.r,c2.r,t), g: lerp(c1.g,c2.g,t), b: lerp(c1.b,c2.b,t) }; }
-
-  const stars = Array.from({length: 170}, () => ({
-    x: Math.random(), y: Math.random(),
-    s: Math.random()*1.8 + 0.2,
-    tw: Math.random()*0.6 + 0.2
-  }));
-
-  function showToast(text, ms=1400){
-    toastEl.textContent = text;
-    toastEl.classList.add("show");
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(()=>toastEl.classList.remove("show"), ms);
-  }
-
-  function airDensityFactor(alt){
-    const t = clamp(alt / world.airTop, 0, 1);
-    return Math.pow(1 - t, 2.2);
-  }
-
-  // === “실제 발사 단계 같은” 각도 가이드 (Pitch Program) ===
-  // 0° = radial outward(수직), 90° = tangential(수평)
-  function guideAngleDeg(alt){
-    // alt in meters
-    // 0~2km: 0°
-    // 2~10km: 0 -> 10°
-    // 10~30km: 10 -> 35°
-    // 30~60km: 35 -> 60°
-    // 60~120km: 60 -> 90°
-    // 120km+: 90°
-    const km = alt / 1000;
-
-    const seg = (a0, a1, k0, k1) => {
-      const t = clamp((km - k0) / (k1 - k0), 0, 1);
-      return lerp(a0, a1, smoothstep(t));
-    };
-
-    if (km < 2) return 0;
-    if (km < 10) return seg(0, 10, 2, 10);
-    if (km < 30) return seg(10, 35, 10, 30);
-    if (km < 60) return seg(35, 60, 30, 60);
-    if (km < 120) return seg(60, 90, 60, 120);
-    return 90;
-  }
-
-  function reset(){
-    rocket.x = world.Re; rocket.y = 0;
-    rocket.vx = 0; rocket.vy = 0;
-    rocket.angleDeg = 0;
-    rocket.throttle = 0;
-    rocket.fuel = 100;
-    rocket.alive = true;
-    rocket.exploded = false;
-    rocket.t = 0;
-    rocket.orbitHold = 0;
-    trail.length = 0;
-
-    angleSlider.value = "0";
-    throttleSlider.value = "0";
-    showToast("초반 수직(0°) → 고도 오르면 가이드 따라 천천히 90°로 눕혀!");
-  }
-
-  // Controls
-  const keys = { left:false, right:false, up:false };
-  addEventListener('keydown', (e) => {
-    const k = e.key.toLowerCase();
-    if (k === 'arrowleft' || k === 'a') keys.left = true;
-    if (k === 'arrowright' || k === 'd') keys.right = true;
-    if (k === 'arrowup' || k === 'w') keys.up = true;
-    if (k === 'r') reset();
-    if (k === ' ') { rocket.throttle = 0; throttleSlider.value = "0"; }
+ // prediction
+ if(pOn.checked){
+  const pts=predict();
+  ctx.setLineDash([6,8]);
+  ctx.strokeStyle="rgba(255,255,255,.5)";
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+   if(i==0)ctx.moveTo(sx(p.x),sy(p.y));
+   else ctx.lineTo(sx(p.x),sy(p.y));
   });
-  addEventListener('keyup', (e) => {
-    const k = e.key.toLowerCase();
-    if (k === 'arrowleft' || k === 'a') keys.left = false;
-    if (k === 'arrowright' || k === 'd') keys.right = false;
-    if (k === 'arrowup' || k === 'w') keys.up = false;
-  });
-
-  function holdButton(el, onDown, onUp){
-    const down = (e) => { e.preventDefault(); onDown(); };
-    const up = (e) => { e.preventDefault(); onUp && onUp(); };
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-    el.addEventListener('pointerleave', up);
-  }
-  holdButton(btn('left'), () => keys.left = true, () => keys.left = false);
-  holdButton(btn('right'), () => keys.right = true, () => keys.right = false);
-  holdButton(btn('up'), () => keys.up = true, () => keys.up = false);
-
-  btn('reset').addEventListener('click', reset);
-  btn('cut').addEventListener('click', () => { rocket.throttle = 0; throttleSlider.value="0"; });
-  btn('center').addEventListener('click', () => { rocket.angleDeg = 0; angleSlider.value="0"; });
-
-  angleSlider.addEventListener('input', () => rocket.angleDeg = parseFloat(angleSlider.value), {passive:true});
-  throttleSlider.addEventListener('input', () => rocket.throttle = parseFloat(throttleSlider.value), {passive:true});
-
-  // === orbit math (approx) ===
-  function computeOrbit(state){
-    const x=state.x, y=state.y, vx=state.vx, vy=state.vy;
-    const r = Math.hypot(x,y);
-    const v2 = vx*vx + vy*vy;
-    const mu = world.mu;
-
-    const eps = v2/2 - mu/r;
-    if (eps >= 0) return { closed:false };
-
-    const a = -mu / (2*eps);
-    const h = x*vy - y*vx;
-    const e = Math.sqrt(Math.max(0, 1 - (h*h)/(a*mu)));
-
-    const rp = a*(1 - e);
-    const ra = a*(1 + e);
-    return {
-      closed:true,
-      e, a,
-      periAlt: rp - world.Re,
-      apoAlt:  ra - world.Re
-    };
-  }
-
-  // === prediction (expected trajectory) ===
-  // Forward simulate for N seconds with current angle/throttle held constant.
-  function predictPath(){
-    const pts = [];
-    const dt = world.predStep;
-    const steps = Math.floor(world.predSeconds / dt);
-
-    // clone state
-    let s = {
-      x: rocket.x, y: rocket.y,
-      vx: rocket.vx, vy: rocket.vy,
-      fuel: rocket.fuel
-    };
-
-    const angDeg = rocket.angleDeg;
-    const thr = rocket.throttle;
-
-    for (let i=0; i<steps; i++){
-      const rx = s.x, ry = s.y;
-      const r = Math.hypot(rx, ry);
-      const alt = r - world.Re;
-
-      // stop if impact
-      if (r <= world.Re) break;
-
-      // gravity
-      const invR3 = 1/(r*r*r);
-      let ax = -world.mu * rx * invR3;
-      let ay = -world.mu * ry * invR3;
-
-      // thrust direction basis
-      const ux = rx / r, uy = ry / r;
-      const tx = -uy, ty = ux;
-      const ang = angDeg * Math.PI/180;
-      const dirx = Math.cos(ang)*ux + Math.sin(ang)*tx;
-      const diry = Math.cos(ang)*uy + Math.sin(ang)*ty;
-
-      // thrust magnitude + fuel burn (same rule)
-      let thrustAcc = 0;
-      if (s.fuel > 0 && thr > 0){
-        thrustAcc = world.thrustMax * (thr/100);
-        s.fuel = clamp(s.fuel - world.fuelBurn*(thr/100)*dt, 0, 100);
-      }
-
-      ax += thrustAcc * dirx;
-      ay += thrustAcc * diry;
-
-      // drag
-      const dens = airDensityFactor(Math.max(0, alt));
-      const speed = Math.hypot(s.vx, s.vy);
-      const dragMag = world.drag0 * dens * Math.pow(speed, world.dragPower);
-      if (speed > 1e-6){
-        ax += (-s.vx / speed) * dragMag;
-        ay += (-s.vy / speed) * dragMag;
-      }
-
-      // integrate
-      s.vx += ax * dt;
-      s.vy += ay * dt;
-      s.x  += s.vx * dt;
-      s.y  += s.vy * dt;
-
-      // save every few steps for drawing
-      if (i % 2 === 0) pts.push({x:s.x, y:s.y});
-    }
-    return pts;
-  }
-
-  // === update ===
-  function update(dt){
-    rocket.t += dt;
-    if (!rocket.alive) return;
-
-    if (keys.left)  rocket.angleDeg -= world.turnRate * dt;
-    if (keys.right) rocket.angleDeg += world.turnRate * dt;
-    rocket.angleDeg = clamp(rocket.angleDeg, -180, 180);
-    angleSlider.value = String(rocket.angleDeg);
-
-    if (keys.up && rocket.fuel > 0) rocket.throttle += world.throttleRate * dt;
-    else rocket.throttle -= world.throttleRate * 0.75 * dt;
-    rocket.throttle = clamp(rocket.throttle, 0, 100);
-    throttleSlider.value = String(rocket.throttle);
-
-    const rx = rocket.x, ry = rocket.y;
-    const r = Math.hypot(rx, ry);
-    const alt = r - world.Re;
-
-    // gravity
-    const invR3 = 1/(r*r*r);
-    let ax = -world.mu * rx * invR3;
-    let ay = -world.mu * ry * invR3;
-
-    // thrust direction (relative to radial outward)
-    const ux = rx / r, uy = ry / r;
-    const tx = -uy, ty = ux;
-
-    const ang = rocket.angleDeg * Math.PI/180;
-    const dirx = Math.cos(ang)*ux + Math.sin(ang)*tx;
-    const diry = Math.cos(ang)*uy + Math.sin(ang)*ty;
-
-    let thrustAcc = 0;
-    if (rocket.fuel > 0 && rocket.throttle > 0){
-      thrustAcc = world.thrustMax * (rocket.throttle/100);
-      rocket.fuel = clamp(rocket.fuel - world.fuelBurn*(rocket.throttle/100)*dt, 0, 100);
-      if (rocket.fuel <= 0){
-        rocket.throttle = 0;
-        throttleSlider.value = "0";
-      }
-    }
-    ax += thrustAcc * dirx;
-    ay += thrustAcc * diry;
-
-    // drag
-    const dens = airDensityFactor(Math.max(0, alt));
-    const speed = Math.hypot(rocket.vx, rocket.vy);
-    const dragMag = world.drag0 * dens * Math.pow(speed, world.dragPower);
-    if (speed > 1e-6){
-      ax += (-rocket.vx / speed) * dragMag;
-      ay += (-rocket.vy / speed) * dragMag;
-    }
-
-    rocket.vx += ax * dt;
-    rocket.vy += ay * dt;
-    rocket.x  += rocket.vx * dt;
-    rocket.y  += rocket.vy * dt;
-
-    // crash
-    const r2 = Math.hypot(rocket.x, rocket.y);
-    if (r2 <= world.Re){
-      rocket.alive = false;
-      rocket.exploded = true;
-      showToast("💥 지구에 충돌! R로 리셋");
-    }
-
-    // orbit success (simple)
-    const orb = computeOrbit(rocket);
-    if (orb.closed && orb.periAlt >= world.orbitMinAlt){
-      rocket.orbitHold += dt;
-      if (rocket.orbitHold >= world.orbitHoldSeconds){
-        rocket.alive = false;
-        showToast("✅ 궤도 성공! (R로 다시)");
-      }
-    } else {
-      rocket.orbitHold = 0;
-    }
-
-    // trail
-    trail.push({x: rocket.x, y: rocket.y});
-    if (trail.length > 240) trail.shift();
-  }
-
-  // === drawing helpers ===
-  function metersToPixels(m){
-    const alt = Math.max(0, Math.hypot(rocket.x, rocket.y) - world.Re);
-    const z = 1/(1 + alt/120000);
-    const base = 0.00016 * DPR;
-    return m * base * (0.75 + 0.75*z);
-  }
-  function worldToScreenX(mx){ return W/2 + metersToPixels(mx - cam.x); }
-  function worldToScreenY(my){ return H/2 - metersToPixels(my - cam.y); }
-
-  function drawBackground(){
-    const alt = Math.max(0, Math.hypot(rocket.x, rocket.y) - world.Re);
-    const t = clamp(alt / world.bgMaxAlt, 0, 1);
-    const t1 = smoothstep(clamp(t*1.25, 0, 1));
-    const t2 = smoothstep(clamp((t-0.35)/0.65, 0, 1));
-    const cA = mixColor(sky, dusk, t1);
-    const cB = mixColor(dusk, space, t2);
-    const top = mixColor(cA, cB, t2);
-    const bottom = mixColor(
-      mixColor({r:120,g:210,b:255}, dusk, t1),
-      mixColor(dusk, space2, t2),
-      t2
-    );
-    const grad = ctx.createLinearGradient(0,0,0,H);
-    grad.addColorStop(0, rgb(top.r, top.g, top.b));
-    grad.addColorStop(1, rgb(bottom.r, bottom.g, bottom.b));
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,W,H);
-
-    const starAlpha = smoothstep(clamp((alt-8000)/25000, 0, 1));
-    if (starAlpha > 0.01){
-      ctx.save();
-      ctx.globalAlpha = 0.85 * starAlpha;
-      ctx.fillStyle = "white";
-      for (const s of stars){
-        const x = s.x * W;
-        const y = s.y * H;
-        const tw = 0.75 + 0.25*Math.sin((rocket.t*1.2 + s.x*10 + s.y*7) * s.tw);
-        const r = (s.s * DPR) * tw;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI*2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-  }
-
-  function drawEarth(){
-    const sx = worldToScreenX(0);
-    const sy = worldToScreenY(0);
-    const Rpx = metersToPixels(world.Re);
-
-    ctx.save();
-    ctx.fillStyle = "rgba(20,40,80,0.55)";
-    ctx.beginPath();
-    ctx.arc(sx, sy, Rpx, 0, Math.PI*2);
-    ctx.fill();
-
-    const glow = ctx.createRadialGradient(sx, sy, Rpx*0.98, sx, sy, Rpx*1.10);
-    glow.addColorStop(0, "rgba(120,210,255,0.06)");
-    glow.addColorStop(1, "rgba(120,210,255,0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(sx, sy, Rpx*1.10, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function drawTrail(){
-    if (trail.length < 2) return;
-    ctx.save();
-    ctx.globalAlpha = 0.22;
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2*DPR;
-    ctx.beginPath();
-    for (let i=0;i<trail.length;i++){
-      const p = trail[i];
-      const x = worldToScreenX(p.x);
-      const y = worldToScreenY(p.y);
-      if (i===0) ctx.moveTo(x,y);
-      else ctx.lineTo(x,y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function roundRect(x,y,w,h,r){
-    const rr = Math.min(r, w/2, h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr, y);
-    ctx.arcTo(x+w, y, x+w, y+h, rr);
-    ctx.arcTo(x+w, y+h, x, y+h, rr);
-    ctx.arcTo(x, y+h, x, y, rr);
-    ctx.arcTo(x, y, x+w, y, rr);
-    ctx.closePath();
-  }
-
-  function drawRocket(){
-    const sx = worldToScreenX(rocket.x);
-    const sy = worldToScreenY(rocket.y);
-
-    // rocket visual orientation: along thrust dir
-    const rx = rocket.x, ry = rocket.y;
-    const r = Math.hypot(rx, ry);
-    const ux = rx / r, uy = ry / r;
-    const tx = -uy, ty = ux;
-
-    const ang = rocket.angleDeg * Math.PI/180;
-    const dirx = Math.cos(ang)*ux + Math.sin(ang)*tx;
-    const diry = Math.cos(ang)*uy + Math.sin(ang)*ty;
-    const rot = Math.atan2(-dirx, diry); // 0 = up
-
-    const alt = Math.max(0, r - world.Re);
-    const scale = clamp(1.15 - alt/300000, 0.55, 1.15) * DPR;
-    const bodyH = 54 * scale;
-    const bodyW = 18 * scale;
-
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(rot);
-
-    const thrusting = rocket.alive && rocket.fuel > 0 && rocket.throttle > 0.5;
-    if (thrusting){
-      const p = rocket.throttle/100;
-      const flameL = (18 + 40*p) * scale;
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = "rgba(255,200,120,0.9)";
-      ctx.beginPath();
-      ctx.moveTo(0, bodyH/2 + 6*scale);
-      ctx.quadraticCurveTo(-10*scale, bodyH/2 + flameL*0.55, 0, bodyH/2 + flameL);
-      ctx.quadraticCurveTo( 10*scale, bodyH/2 + flameL*0.55, 0, bodyH/2 + 6*scale);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.globalAlpha = 0.75;
-      ctx.fillStyle = "rgba(255,120,80,0.9)";
-      ctx.beginPath();
-      ctx.moveTo(0, bodyH/2 + 6*scale);
-      ctx.quadraticCurveTo(-6*scale, bodyH/2 + flameL*0.45, 0, bodyH/2 + flameL*0.78);
-      ctx.quadraticCurveTo( 6*scale, bodyH/2 + flameL*0.45, 0, bodyH/2 + 6*scale);
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.fillStyle = "rgba(255,255,255,0.95)";
-    roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 10*scale);
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(230,230,240,0.95)";
-    ctx.beginPath();
-    ctx.moveTo(-bodyW/2, -bodyH/2 + 6*scale);
-    ctx.lineTo(0, -bodyH/2 - 16*scale);
-    ctx.lineTo(bodyW/2, -bodyH/2 + 6*scale);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(90,150,255,0.85)";
-    ctx.beginPath();
-    ctx.arc(0, -8*scale, 5.2*scale, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // === Guide rendering (two arrows from rocket) ===
-  function drawGuide(){
-    if (!showGuideEl.checked) return;
-
-    const r = Math.hypot(rocket.x, rocket.y);
-    const alt = Math.max(0, r - world.Re);
-    const gAng = guideAngleDeg(alt);
-
-    // basis
-    const ux = rocket.x / r, uy = rocket.y / r;
-    const tx = -uy, ty = ux;
-
-    function dirFromAngle(deg){
-      const a = deg * Math.PI/180;
-      return {
-        x: Math.cos(a)*ux + Math.sin(a)*tx,
-        y: Math.cos(a)*uy + Math.sin(a)*ty
-      };
-    }
-
-    const cur = dirFromAngle(rocket.angleDeg);
-    const gd  = dirFromAngle(gAng);
-
-    const sx = worldToScreenX(rocket.x);
-    const sy = worldToScreenY(rocket.y);
-
-    const L = 52 * DPR; // arrow length
-
-    // current arrow (solid)
-    ctx.save();
-    ctx.globalAlpha = 0.65;
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2*DPR;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx + cur.x*L, sy - cur.y*L);
-    ctx.stroke();
-
-    // guide arrow (dashed)
-    ctx.globalAlpha = 0.9;
-    ctx.setLineDash([6*DPR, 6*DPR]);
-    ctx.strokeStyle = "rgba(255,255,255,0.9)";
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx + gd.x*L, sy - gd.y*L);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // label near rocket
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.font = `${Math.floor(12*DPR)}px system-ui`;
-    ctx.fillText(`guide ${gAng.toFixed(0)}°`, sx + 10*DPR, sy - 12*DPR);
-    ctx.restore();
-  }
-
-  // === Predicted path rendering (dotted line) ===
-  function drawPrediction(){
-    if (!showPredEl.checked) return;
-    if (!rocket.alive) return;
-
-    const pts = predictPath();
-    if (pts.length < 2) return;
-
-    ctx.save();
-    ctx.globalAlpha = 0.45;
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2*DPR;
-    ctx.setLineDash([4*DPR, 8*DPR]);
-    ctx.beginPath();
-    for (let i=0;i<pts.length;i++){
-      const p = pts[i];
-      const x = worldToScreenX(p.x);
-      const y = worldToScreenY(p.y);
-      if (i===0) ctx.moveTo(x,y);
-      else ctx.lineTo(x,y);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
-
-  function syncUI(){
-    angleVal.textContent = `${rocket.angleDeg.toFixed(0)}°`;
-    thrVal.textContent = `${rocket.throttle.toFixed(0)}%`;
-
-    const r = Math.hypot(rocket.x, rocket.y);
-    const alt = Math.max(0, r - world.Re);
-    altEl.textContent = `${alt.toFixed(0)}`;
-
-    const spd = Math.hypot(rocket.vx, rocket.vy);
-    spdEl.textContent = `${spd.toFixed(1)}`;
-
-    fuelEl.textContent = `${rocket.fuel.toFixed(0)}`;
-
-    const gAng = guideAngleDeg(alt);
-    guideEl.textContent = `${gAng.toFixed(0)}`;
-
-    const orb = computeOrbit(rocket);
-    if (orb.closed){
-      periEl.textContent = `${Math.max(0, orb.periAlt).toFixed(0)}`;
-      apoEl.textContent  = `${Math.max(0, orb.apoAlt).toFixed(0)}`;
-      statusEl.textContent = (orb.periAlt >= world.orbitMinAlt)
-        ? `유지중 ${rocket.orbitHold.toFixed(1)}s`
-        : "미달";
-    } else {
-      periEl.textContent = "-";
-      apoEl.textContent = "-";
-      statusEl.textContent = "탈출/미정";
-    }
-  }
-
-  let last = performance.now();
-  function loop(now){
-    const dt = Math.min(0.02, (now - last)/1000);
-    last = now;
-
-    cam.x = lerp(cam.x, rocket.x, 0.06);
-    cam.y = lerp(cam.y, rocket.y, 0.06);
-
-    update(dt);
-
-    drawBackground();
-    drawEarth();
-    drawTrail();
-    drawPrediction(); // 예상 궤적 먼저
-    drawRocket();
-    drawGuide();      // 각도 가이드 오버레이
-    syncUI();
-
-    if (!rocket.alive){
-      ctx.save();
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.font = `${Math.floor(22*DPR)}px system-ui`;
-      const msg = rocket.exploded ? "💥 충돌! R로 리셋" : "✅ 궤도 성공!";
-      ctx.fillText(msg, 18*DPR, 44*DPR);
-      ctx.restore();
-    }
-
-    requestAnimationFrame(loop);
-  }
-
-  reset();
-  requestAnimationFrame(loop);
-})();
+  ctx.stroke(); ctx.setLineDash([]);
+ }
+
+ // rocket
+ ctx.fillStyle="#fff";
+ ctx.beginPath();
+ ctx.arc(sx(rocket.x),sy(rocket.y),5*DPR,0,Math.PI*2);
+ ctx.fill();
+}
+
+function update(dt){
+ if(!rocket.alive) return;
+ if(keys.left) rocket.ang-=90*dt;
+ if(keys.right) rocket.ang+=90*dt;
+ if(keys.up && rocket.fuel>0) rocket.thr=Math.min(100,rocket.thr+80*dt);
+ else rocket.thr=Math.max(0,rocket.thr-60*dt);
+
+ const r=Math.hypot(rocket.x,rocket.y);
+ const alt=r-Re;
+ const ux=rocket.x/r, uy=rocket.y/r;
+ const tx=-uy, ty=ux;
+ const a=rocket.ang*Math.PI/180;
+
+ let ax=-mu*rocket.x/(r*r*r);
+ let ay=-mu*rocket.y/(r*r*r);
+
+ const thrust=rocket.thr/100*30;
+ ax+=thrust*(Math.cos(a)*ux+Math.sin(a)*tx);
+ ay+=thrust*(Math.cos(a)*uy+Math.sin(a)*ty);
+
+ rocket.vx+=ax*dt; rocket.vy+=ay*dt;
+ rocket.x+=rocket.vx*dt; rocket.y+=rocket.vy*dt;
+
+ trail.push({x:rocket.x,y:rocket.y});
+ if(trail.length>200)trail.shift();
+
+ if(r<=Re){rocket.alive=false;}
+}
+
+let last=performance.now();
+function loop(t){
+ const dt=Math.min(0.02,(t-last)/1000); last=t;
+ update(dt); draw();
+
+ // UI
+ const alt=Math.max(0,Math.hypot(rocket.x,rocket.y)-Re);
+ aVal.textContent=Math.round(rocket.ang)+"°";
+ tVal.textContent=Math.round(rocket.thr)+"%";
+ altEl.textContent=Math.round(alt);
+ spd.textContent=Math.round(Math.hypot(rocket.vx,rocket.vy));
+ fuel.textContent=Math.round(rocket.fuel);
+ gAng.textContent=Math.round(guideAngle(alt));
+
+ requestAnimationFrame(loop);
+}
+loop(last);
 </script>
 </body>
 </html>
